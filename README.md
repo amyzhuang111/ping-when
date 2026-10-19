@@ -1,5 +1,7 @@
 # Ping When
 
+Live: https://ping-when.vercel.app
+
 Sourcing is automated. Timing is not.
 
 Ping When decides when to reach out. A person still writes. The queue starts empty. Import a CSV or JSON of real candidates — name, role, employer, `start_date` (`YYYY-MM`), and dated signals (`type`, `date`, `source_url`, `note`) — and the score, the cliff, and the queue are computed from that file only. Approve, snooze, or dismiss. Export the approved rows as CSV. Nothing is sent.
@@ -15,9 +17,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). No API keys, no database, no network calls. Everything is seed data in the client.
+Open [http://localhost:3000](http://localhost:3000). No API keys, no database, no network calls. Everything runs in the client, and scores are computed only from the CSV/JSON you import. The 30 fictional seed archetypes are a labelled example loaded only on purpose. Nothing is sent.
 
-Optional check that the seed scores and the CSV import still hold:
+Optional check that the example scores and the CSV import still hold:
 
 ```bash
 npm test
@@ -25,7 +27,7 @@ npm test
 
 ## What you are looking at
 
-Every profile is labeled **SEED DATA**. Names, employers, papers, and start dates are invented. Nothing here is a claim about a real person.
+Profiles in the labelled example are fictional seed archetypes: names, employers, papers, and start dates are invented, and nothing in that example is a claim about a real person. Profiles you import are scored only from your CSV/JSON in the client. Nothing is sent.
 
 Each profile has a role type, months in role, and a dated signal timeline. The tenure cliff is inferred from the role start: 12, 24, and 36 months. Only the strongest mark enters the score.
 

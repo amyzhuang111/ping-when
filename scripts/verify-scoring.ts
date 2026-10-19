@@ -52,9 +52,10 @@ for (const type of SIGNAL_ORDER) {
   assert(present.has(type), `signal type ${type} appears in the seed set`);
 }
 
-const balanced = scoreResearchers(RESEARCHERS, DEFAULT_WEIGHTS);
+const AS_OF = parseISODate("2026-10-19");
+const balanced = scoreResearchers(RESEARCHERS, DEFAULT_WEIGHTS, AS_OF);
 const cliffWeek: Weights = { cliff: 70, proof: 40, shift: 30 };
-const emphasized = scoreResearchers(RESEARCHERS, cliffWeek);
+const emphasized = scoreResearchers(RESEARCHERS, cliffWeek, AS_OF);
 
 const idrisBalanced = balanced.find((row) => row.person.id === "r01");
 const idrisCliff = emphasized.find((row) => row.person.id === "r01");

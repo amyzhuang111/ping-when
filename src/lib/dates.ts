@@ -1,8 +1,3 @@
-/** Fixed clock for the case study. Monday, 19 October 2026. */
-export const AS_OF = new Date(Date.UTC(2026, 9, 19));
-/** Sunday ending the case-study week. */
-export const WEEK_END = new Date(Date.UTC(2026, 9, 25));
-
 const MONTHS = [
   "Jan",
   "Feb",
@@ -69,7 +64,7 @@ export function formatWeek(date: Date): string {
   return `week of ${formatShort(weekOf(date))}`;
 }
 
-/** Monday–Sunday week containing `asOf`, ending on Sunday. For the case-study clock this is 25 Oct 2026. */
+/** Monday–Sunday week containing `asOf`, ending on Sunday. */
 export function weekEnding(asOf: Date): Date {
   return addDays(weekOf(asOf), 6);
 }
@@ -97,7 +92,7 @@ export function parseStartDate(value: string): string | null {
   return trimmed;
 }
 
-export function monthsInRole(startISO: string, asOf: Date = AS_OF): number {
+export function monthsInRole(startISO: string, asOf: Date = todayUTC()): number {
   const start = parseISODate(startISO);
   let months =
     (asOf.getUTCFullYear() - start.getUTCFullYear()) * 12 +

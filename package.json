@@ -2,7 +2,7 @@
   "name": "ping-when",
   "version": "0.1.0",
   "private": true,
-  "description": "Outreach timing engine for research talent. Seed data only.",
+  "description": "Outreach timing engine: starts empty, scores only the CSV/JSON you import by tenure cliff, proof, and shift against the real current week. Nothing is sent.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -2,13 +2,11 @@ import { readFileSync } from "node:fs";
 import { DEFAULT_WEIGHTS } from "../src/lib/constants";
 import {
   addMonths,
-  AS_OF,
   daysBetween,
   monthsInRole,
   parseISODate,
   parseStartDate,
   toISODate,
-  WEEK_END,
   weekEnding,
 } from "../src/lib/dates";
 import {
@@ -33,7 +31,8 @@ function assert(condition: boolean, message: string): void {
 }
 
 const asOf = parseISODate("2026-10-19");
-assert(weekEnding(AS_OF).getTime() === WEEK_END.getTime(), "case-study week still ends 25 Oct 2026");
+const WEEK_END = parseISODate("2026-10-25");
+assert(weekEnding(asOf).getTime() === WEEK_END.getTime(), "injected week (19 Oct 2026) ends 25 Oct 2026");
 assert(monthsInRole("2025-11-09", asOf) === 11, "11 months from 2025-11-09 to 2026-10-19");
 const cliffDay = addMonths(parseISODate("2025-11-09"), 12);
 assert(toISODate(cliffDay) === "2026-11-09", "12-month cliff from 2025-11-09 is 2026-11-09");
@@ -97,8 +96,8 @@ const roundTrip = parseImport(example, "ping-when-example.csv");
 assert(roundTrip.errors.length === 0, `example file has no import errors (got ${roundTrip.errors.length})`);
 assert(roundTrip.unscored.length === 0, "example file has no unscored rows");
 assert(roundTrip.people.length === 30, `example file restores 30 people (got ${roundTrip.people.length})`);
-const original = scoreResearchers(RESEARCHERS, DEFAULT_WEIGHTS);
-const restored = scoreResearchers(roundTrip.people, DEFAULT_WEIGHTS);
+const original = scoreResearchers(RESEARCHERS, DEFAULT_WEIGHTS, asOf);
+const restored = scoreResearchers(roundTrip.people, DEFAULT_WEIGHTS, asOf);
 assert(original.length === restored.length, "example scoring covers every seed profile");
 for (let i = 0; i < original.length; i += 1) {
   const left = original[i];

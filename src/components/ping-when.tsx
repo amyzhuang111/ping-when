@@ -7,7 +7,7 @@ import { QueueTable } from "@/components/queue-table";
 import { WeightPanel } from "@/components/weight-panel";
 import { DEFAULT_WEIGHTS } from "@/lib/constants";
 import { drivingLabel, STATUS_LABEL } from "@/lib/copy";
-import { AS_OF, formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
+import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
 import { approvedQueueCsv, type ImportResult } from "@/lib/exchange";
 import { scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
 import {
@@ -33,7 +33,7 @@ function readOperatorDay(): Date {
 }
 
 function readServerDay(): Date {
-  return AS_OF;
+  return todayUTC();
 }
 
 type View = "week" | "rank" | "next";

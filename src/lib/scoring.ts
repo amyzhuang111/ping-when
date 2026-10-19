@@ -8,7 +8,6 @@ import {
   YEAR_WEIGHT,
 } from "@/lib/constants";
 import {
-  AS_OF,
   addDays,
   addMonths,
   daysBetween,
@@ -16,6 +15,7 @@ import {
   parseISODate,
   rangesOverlap,
   toISODate,
+  todayUTC,
   weekEnding,
 } from "@/lib/dates";
 import type { Researcher, SignalType, Status, WeightKey, Weights } from "@/lib/types";
@@ -87,7 +87,7 @@ export function cliffProximity(daysUntil: number): number {
   return 0.05 + 0.95 * gaussian;
 }
 
-export function windowStateFor(opens: Date, closes: Date, asOf = AS_OF): WindowState {
+export function windowStateFor(opens: Date, closes: Date, asOf: Date = todayUTC()): WindowState {
   const weekEnd = weekEnding(asOf);
   if (rangesOverlap(opens, closes, asOf, weekEnd)) return "open";
   if (opens.getTime() > weekEnd.getTime()) return "ahead";
@@ -133,7 +133,7 @@ function squash(raws: number[]): number {
 export function scoreResearchers(
   people: Researcher[],
   weights: Weights,
-  asOf: Date = AS_OF,
+  asOf: Date = todayUTC(),
 ): ScoredResearcher[] {
   const scored = people.map((person) => scoreOne(person, weights, asOf));
   scored.sort(

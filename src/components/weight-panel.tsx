@@ -108,7 +108,7 @@ export function WeightPanel({
         <div className="border-b border-[#4d4d4d] p-5">
           <dt className="text-[#888]">Reach out this week</dt>
           <dd>
-            Score at least {REACH_THRESHOLD}, and the driving window covers 19–25 Oct.
+            Score at least {REACH_THRESHOLD}, and the driving window covers this week.
           </dd>
         </div>
         <div className="border-b border-[#4d4d4d] p-5">

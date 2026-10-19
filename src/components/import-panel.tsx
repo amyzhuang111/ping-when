@@ -105,9 +105,11 @@ export function ImportPanel({
             </button>
           )}
         </div>
-        <p className="gi-mono mt-4 text-[12px] leading-5 text-[#888]">
-          Example. 30 fictional seed archetypes. Load it on purpose. Clear it before a real list.
-        </p>
+        {!loaded && (
+          <p className="gi-mono mt-4 text-[12px] leading-5 text-[#888]">
+            Load example uses 30 fictional seed archetypes. Load it on purpose. Clear it before a real list.
+          </p>
+        )}
       </div>
 
       <div className="p-5">

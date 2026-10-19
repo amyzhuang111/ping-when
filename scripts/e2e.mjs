@@ -154,6 +154,8 @@ await openAllSignals(page);
 await placeholderCheck(page, "real roster (signals open)");
 const collected = [];
 const placeholderHits = [];
+let allText = "";
+const overflowing = [];
 const nButtons = await page.$$eval("button", (bs) => bs.filter((b) => /^(Signals|Hide signals)$/.test(b.textContent.trim())).length);
 for (let i = 0; i < nButtons; i++) {
   await page.evaluate((i) => {
@@ -163,9 +165,34 @@ for (let i = 0; i < nButtons; i++) {
   await new Promise((r) => setTimeout(r, 120));
   collected.push(...(await page.$$eval("[data-person] a[href^='http']", (as) => as.map((a) => a.href))));
   if (/example\.(com|org|net)/i.test(await page.evaluate(() => document.body.innerText + [...document.querySelectorAll("a[href]")].map((a) => a.href).join(" ")))) placeholderHits.push(i + 1);
+  const info = await page.evaluate(() => ({
+    text: document.body.innerText,
+    overflow: [...document.querySelectorAll("[data-person] a[href]")].filter((a) => {
+      const cell = a.parentElement.getBoundingClientRect();
+      return a.getBoundingClientRect().right > cell.right + 1;
+    }).map((a) => a.href),
+  }));
+  allText += "\n" + info.text;
+  overflowing.push(...info.overflow);
 }
 const links = [...new Set(collected)];
 check("real roster: no example.com on any opened card", placeholderHits.length === 0, placeholderHits.join(","));
+check("real roster: label says 'Real public sources · scores are illustrative'", (await page.$eval('[data-testid="dataset"]', (e) => e.textContent)) === "Real public sources · scores are illustrative");
+check("real roster: no seed/fictional labels anywhere (cards opened)", !/Same fictional employer|30 fictional seed archetypes|EXAMPLE DATA|Fictional seed signal/.test(allText), (allText.match(/.{0,40}(Same fictional employer|30 fictional seed archetypes|EXAMPLE DATA|Fictional seed signal).{0,40}/) || [""])[0]);
+check("real roster: long source URLs stay inside their column", overflowing.length === 0, overflowing.join(" | "));
+if (!process.env.EXPECT_NAME || process.env.EXPECT_NAME === "Parker-Holder") {
+  check("real roster: full paper titles shown (Beyond the Visible, Consistent Long-Horizon)", allText.includes("Generative Pixel-Aligned Geometry Beyond the Visible") && allText.includes("Local-Global Rewards for Consistent Long-Horizon Video Generation"));
+}
+const summary = await page.$eval('[data-testid="summary"]', (e) => e.textContent);
+check("summary counts scored and incomplete (no 'All scored' while people are unscored)", summary.includes(`${EXPECT_SCORED} scored`) && summary.includes(`${EXPECT_UNSCORED} need a start date`) && !allText.includes("All scored"), summary);
+// Empty state must never flash on reload while a stored roster loads.
+await page.evaluateOnNewDocument(() => {
+  window.__emptySeen = false;
+  new MutationObserver(() => { if (document.querySelector('[data-empty="true"]')) window.__emptySeen = true; }).observe(document, { childList: true, subtree: true });
+});
+await page.reload({ waitUntil: "networkidle0" });
+await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
+check("reload with stored roster: 'The queue is empty' never flashes", (await page.evaluate(() => window.__emptySeen)) === false && !(await page.content()).includes("The queue is empty."));
 const dead = [];
 for (const url of links) {
   let status = 0;
@@ -182,6 +209,7 @@ await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b
 await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
 await openAllSignals(page);
 await placeholderCheck(page, "fictional example (signals open)");
+check("example: label says 'EXAMPLE DATA, fictional' and never 'Real public sources'", (await page.$eval('[data-testid="dataset"]', (e) => e.textContent)) === "EXAMPLE DATA, fictional" && !(await page.evaluate(() => document.body.innerText)).includes("Real public sources"));
 check("fictional example: placeholder signals say 'Fictional seed signal, no source link'", (await page.$$eval("[data-no-source]", (els) => els.filter((e) => e.textContent.includes("Fictional seed signal, no source link")).length)) > 0);
 await page.close();
 

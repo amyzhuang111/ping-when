@@ -59,7 +59,7 @@ export function QueueTable({
         const delta = before ? before.rank - row.rank : 0;
         const open = openId === row.person.id;
         const decision = decisions[row.person.id];
-        const peers = peersById.get(row.person.id) ?? [];
+        const peers = markSeed ? (peersById.get(row.person.id) ?? []) : [];
         return (
           <div key={row.person.id} className="gi-block" data-person={row.person.id} data-status={row.status} data-rank={row.rank}>
             <div className="gi-row">
@@ -210,7 +210,7 @@ function SignalLines({
                   <p className="mt-3 text-[16px] leading-[1.7]">{guide.what}</p>
                   {signal.sourceUrl ? (
                     <a
-                      className="gi-mono mt-3 block text-[12px] leading-5 underline"
+                      className="gi-mono mt-3 block text-[12px] leading-5 underline [overflow-wrap:anywhere]"
                       href={signal.sourceUrl}
                       rel="noreferrer"
                       target="_blank"

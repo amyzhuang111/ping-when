@@ -25,6 +25,9 @@ import {
 import type { Researcher, Weights } from "@/lib/types";
 
 const NO_PEOPLE: Researcher[] = [];
+const noopSubscribe = () => () => {};
+const clientTrue = () => true;
+const serverFalse = () => false;
 let operatorDay: Date | undefined;
 
 function subscribeClock(): () => void {
@@ -56,6 +59,8 @@ export function PingWhen() {
   );
   const [exportText, setExportText] = useState("");
   const asOf = useSyncExternalStore(subscribeClock, readOperatorDay, readServerDay);
+  /* False during server render and hydration, so the empty state cannot flash before the stored roster loads. */
+  const hydrated = useSyncExternalStore(noopSubscribe, clientTrue, serverFalse);
 
   const people = workspace?.people ?? NO_PEOPLE;
   const decisions = workspace?.decisions ?? {};
@@ -170,6 +175,11 @@ export function PingWhen() {
       <header className="gi-hero">
         <div className="mx-auto max-w-6xl px-4 py-14 md:px-6 md:py-20">
           <p className="gi-mono gi-subtle text-[13px]">Ping when.</p>
+          {hydrated && loaded && (
+            <p className="gi-mono mt-3 text-[12px] uppercase tracking-[0.14em] text-black" data-testid="dataset">
+              {example ? "EXAMPLE DATA, fictional" : "Real public sources · scores are illustrative"}
+            </p>
+          )}
           <h1 className="gi-h mt-6 max-w-[45ch] text-[40px] text-black">
             Sourcing is automated. Timing is not.
           </h1>
@@ -231,7 +241,7 @@ export function PingWhen() {
           <Issues workspace={workspace} />
         )}
 
-        {!loaded && (
+        {hydrated && !loaded && (
           <div className="gi-grid mt-8 p-5" data-empty="true">
             <h2 className="gi-h text-[32px] text-white">The queue is empty.</h2>
             <p className="gi-prose mt-4">Nothing is scored until you bring a roster. Three steps:</p>
@@ -267,6 +277,9 @@ export function PingWhen() {
               <WeightPanel weights={weights} onChange={setWeights} />
             </div>
             <div className="min-w-0">
+              <p className="gi-mono mb-4 text-[13px] text-[#888]" data-testid="summary">
+                {people.length} scored · {workspace?.unscored.length ?? 0} need a start date
+              </p>
               <div className="mb-4 flex flex-wrap gap-2">
                 <button type="button" className="gi-btn" onClick={onExportRanked} data-testid="export-ranked">
                   Export ranked queue (CSV)
@@ -293,7 +306,7 @@ export function PingWhen() {
                   {(
                     [
                       ["week", "This week"],
-                      ["rank", "All scored"],
+                      ["rank", "Scored"],
                       ["next", "Automate next"],
                     ] as const
                   ).map(([id, text]) => (

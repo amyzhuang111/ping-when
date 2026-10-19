@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /e2e-downloads
+
+# real-person roster stays local (x-growth), never in the public repo
+ping-when-real-demo*.csv
+ping-when-real-demo-sources.md

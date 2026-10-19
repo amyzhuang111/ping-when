@@ -135,15 +135,25 @@ export function closestToTheLine(rows: ScoredResearcher[]): ScoredResearcher[] {
   return rows.filter((row) => row.status !== "reach");
 }
 
+/* Deterministic order: score to 1e-9 (so last-bit float differences between engines cannot flip
+   a tie), then name by code point (no locale), then id. */
+const quantize = (n: number) => Math.round(n * 1e9);
+const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+export function compareRows(a: ScoredResearcher, b: ScoredResearcher): number {
+  return (
+    quantize(b.scoreExact) - quantize(a.scoreExact) ||
+    byCodePoint(a.person.name, b.person.name) ||
+    byCodePoint(a.person.id, b.person.id)
+  );
+}
+
 export function scoreResearchers(
   people: Researcher[],
   weights: Weights,
   asOf: Date = todayUTC(),
 ): ScoredResearcher[] {
   const scored = people.map((person) => scoreOne(person, weights, asOf));
-  scored.sort(
-    (a, b) => b.scoreExact - a.scoreExact || a.person.name.localeCompare(b.person.name),
-  );
+  scored.sort(compareRows);
   return scored.map((row, index) => ({ ...row, rank: index + 1 }));
 }
 

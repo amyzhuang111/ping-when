@@ -115,7 +115,9 @@ npm test
 
 - `npm test` — unit checks (scoring, import, independent re-derivation, ranked export).
 - `BASE_URL=https://ping-when.vercel.app npm run e2e` — headless Chrome end-to-end against any deployment
-  (file upload, paste, 0 errors / 5 scored / 11 needs-start-date on the demo roster, cliff 70, reload
-  persistence, ranked CSV export, 375px layout, console errors). `CHROME_PATH` and `ROSTER` override defaults.
+  (file upload, paste, expected scored / needs-start-date counts, cliff 70, reload persistence, ranked CSV
+  export, 375px layout, console errors). The real-person roster is not in this repo; point `ROSTER` at a local
+  copy, or run the fictional fixture: `ROSTER=scripts/fixtures/export-fixture.csv EXPECT_SCORED=5
+  EXPECT_UNSCORED=11 EXPECT_NAME="Fixture Echo"`. `CHROME_PATH` overrides the browser.
 
 Fonts are self-hosted (Geist variable woff2, SIL OFL) under `src/app/fonts`; no font CDN.

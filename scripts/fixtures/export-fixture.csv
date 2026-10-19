@@ -1,0 +1,17 @@
+name,role,employer,start_date,type,date,source_url,note
+Fixture Alpha,Researcher,Lab A,2024-09,release,2026-10-01,https://example.com/alpha,Fictional test fixture
+Fixture Bravo,Researcher,Lab A,2024-09,release,2026-10-01,https://example.com/bravo,Fictional test fixture
+Fixture Charlie,Founder,Lab B,2026-01,release,2026-10-01,https://example.com/charlie,Fictional test fixture
+Fixture Delta,CEO,Lab A,2024-09,release,2026-10-01,https://example.com/delta,Fictional test fixture
+Fixture Echo,Scientist,Lab C,2022-07-25,release,2026-10-01,https://example.com/echo,Fictional test fixture
+Fixture Foxtrot,Professor,Univ 0,,release,2026-10-01,https://example.com/foxtrot,Fictional test fixture
+Fixture Golf,Professor,Univ 1,,release,2026-10-02,https://example.com/golf,Fictional test fixture
+Fixture Hotel,Professor,Univ 2,,release,2026-10-03,https://example.com/hotel,Fictional test fixture
+Fixture India,Professor,Univ 3,,release,2026-10-04,https://example.com/india,Fictional test fixture
+Fixture Juliet,Professor,Univ 4,,release,2026-10-05,https://example.com/juliet,Fictional test fixture
+Fixture Kilo,Professor,Univ 5,,release,2026-10-06,https://example.com/kilo,Fictional test fixture
+Fixture Lima,Professor,Univ 6,,release,2026-10-07,https://example.com/lima,Fictional test fixture
+Fixture Mike,Professor,Univ 7,,release,2026-10-08,https://example.com/mike,Fictional test fixture
+Fixture November,Professor,Univ 8,,release,2026-10-09,https://example.com/november,Fictional test fixture
+Fixture Oscar,Professor,Univ 9,,release,2026-10-01,https://example.com/oscar,Fictional test fixture
+Fixture Papa,Professor,Univ 10,,release,2026-10-02,https://example.com/papa,Fictional test fixture

@@ -5,7 +5,12 @@ import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
-const ROSTER = path.resolve(process.env.ROSTER || "scripts/fixtures/ping-when-real-demo.csv");
+// The real-person roster is kept out of the repo. Point ROSTER at it (default: Amy's local copy),
+// or at scripts/fixtures/export-fixture.csv (fictional) with EXPECT_SCORED=5 EXPECT_UNSCORED=11 EXPECT_NAME="Fixture Echo".
+const ROSTER = path.resolve(process.env.ROSTER || "/workspace/x-growth/ping-when-real-demo.csv");
+const EXPECT_SCORED = Number(process.env.EXPECT_SCORED ?? 14);
+const EXPECT_UNSCORED = Number(process.env.EXPECT_UNSCORED ?? 2);
+const EXPECT_NAME = process.env.EXPECT_NAME ?? "Parker-Holder";
 const CHROME =
   process.env.CHROME_PATH ||
   ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"].find(existsSync);
@@ -68,10 +73,10 @@ await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
 s = await state(page);
 const scored = [...s.week, ...s.closest];
 check("upload: 0 import errors", !s.errorsHeading);
-check("upload: 5 scored people", scored.length === 5, JSON.stringify(scored));
-check("upload: 11 needs-start-date", s.unscored === 11, String(s.unscored));
-check("upload: all scored people in Closest at balanced weights", s.closest.length === 5 && s.week.length === 0, JSON.stringify(s));
-check("upload: Parker-Holder in Closest", s.closestNames.some((n) => /Parker-Holder/.test(n)), JSON.stringify(s.closestNames));
+check(`upload: ${EXPECT_SCORED} scored people`, scored.length === EXPECT_SCORED, JSON.stringify(scored));
+check(`upload: ${EXPECT_UNSCORED} needs-start-date`, s.unscored === EXPECT_UNSCORED, String(s.unscored));
+check("upload: every scored person is in This week or Closest (no cap)", s.week.length + s.closest.length === EXPECT_SCORED, JSON.stringify(s));
+check(`upload: ${EXPECT_NAME} shown`, [...s.weekNames, ...s.closestNames].some((n) => n.includes(EXPECT_NAME)), JSON.stringify(s.closestNames));
 const balanced = s;
 console.log("balanced order:", JSON.stringify([...s.weekNames.map((n) => `WEEK ${n}`), ...s.closestNames]));
 const balancedText = await page.evaluate(() => [...document.querySelectorAll("[data-person]")].slice(0, 5).map((e) => e.innerText.split("\n").slice(0, 6).join(" | ")));
@@ -99,7 +104,7 @@ console.log(cliffText.join("\n"));
 await page.reload({ waitUntil: "networkidle0" });
 await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
 const s2 = await state(page);
-check("reload: roster persists", [...s2.week, ...s2.closest].length === 5 && s2.unscored === 11);
+check("reload: roster persists", [...s2.week, ...s2.closest].length === EXPECT_SCORED && s2.unscored === EXPECT_UNSCORED);
 check("reload: weights persist", [...s2.week, ...s2.closest].join(",") === after);
 
 // 5. Export ranked queue
@@ -110,8 +115,8 @@ await page.click('[data-testid="export-ranked"]');
 const file = path.join(dl, "ping-when-ranked-queue.csv");
 for (let i = 0; i < 30 && !existsSync(file); i++) await new Promise((r) => setTimeout(r, 200));
 const out = existsSync(file) ? readFileSync(file, "utf8").trim().split("\n") : [];
-check("export: ranked CSV has header + 16 rows", out.length === 17, String(out.length));
-check("export: 11 rows marked needs-start-date", out.filter((l) => l.includes("needs-start-date")).length === 11);
+check(`export: ranked CSV has header + ${EXPECT_SCORED + EXPECT_UNSCORED} rows`, out.length === EXPECT_SCORED + EXPECT_UNSCORED + 1, String(out.length));
+check(`export: ${EXPECT_UNSCORED} rows marked needs-start-date`, out.filter((l) => l.includes("needs-start-date")).length === EXPECT_UNSCORED);
 await page.close();
 
 // 6. Paste flow
@@ -125,7 +130,7 @@ await page.$eval("#paste-roster", (el, v) => {
 await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Import paste").click());
 await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
 s = await state(page);
-check("paste: 5 scored, 11 unscored, 0 errors", [...s.week, ...s.closest].length === 5 && s.unscored === 11 && !s.errorsHeading, JSON.stringify(s));
+check("paste: same counts as upload, 0 errors", [...s.week, ...s.closest].length === EXPECT_SCORED && s.unscored === EXPECT_UNSCORED && !s.errorsHeading, JSON.stringify(s));
 check("paste: same order as upload", [...s.week, ...s.closest].join(",") === before);
 await page.close();
 

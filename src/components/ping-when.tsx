@@ -179,7 +179,7 @@ export function PingWhen() {
 
       <header className="hair-b">
         <div className="mx-auto max-w-[1440px] px-4 pt-8 pb-5 text-center md:px-10">
-          <p className="wordmark">PING WHEN</p>
+          <p className="wordmark">ping when</p>
           <p className="eyebrow mt-3 min-h-4 muted" data-testid="dataset">
             {hydrated ? datasetLine : ""}
           </p>

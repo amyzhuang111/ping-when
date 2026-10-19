@@ -215,16 +215,18 @@ export function PingWhen() {
           <div className="gi-grid mt-8 p-5" data-empty="true">
             <h2 className="gi-h text-[32px] text-white">The queue is empty.</h2>
             <p className="gi-prose mt-4">
-              Bring ping-when-template.csv, or a JSON file with the same fields. Each person needs a
-              name, role, employer, and start_date. Each signal needs a type, a date, a source_url,
-              and a note. Missing dates stay on the page as unscored. They are not guessed.
+              Bring ping-when-template.csv, or a JSON file with the same fields. Each person needs
+              only a name, role, employer, and start_date — four columns are enough. Signals are
+              optional, one per row (type, date, source_url, note), and a candidate with no signal
+              still scores from start_date (cliff). A missing start_date, or a signal missing its
+              date, stays on the page as unscored. It is not guessed.
             </p>
           </div>
         )}
 
         {loaded && people.length === 0 && (
           <div className="gi-grid mt-8 p-5">
-            <p className="gi-prose-sm">No scored candidates. Fix the dated rows, then import the file again.</p>
+            <p className="gi-prose-sm">No scored candidates yet. Check the rows above — a candidate needs a valid start_date, and any signal needs a valid date — then import the file again.</p>
           </div>
         )}
 
@@ -349,7 +351,7 @@ function Issues({ workspace }: { workspace: Workspace }) {
       {workspace.errors.length > 0 && (
         <section>
           <h2 className="gi-h text-[28px] text-white">Import errors.</h2>
-          <p className="gi-prose-sm mt-3">These rows were not scored. They were not dropped.</p>
+          <p className="gi-prose-sm mt-3">These rows had a problem. Only the faulty row or signal noted was dropped or skipped — a candidate listed here can still appear in the scored queue from start_date (cliff) or other valid signals.</p>
           <div className="gi-grid mt-4">
             {workspace.errors.map((error) => (
               <p key={`${error.row}-${error.message}`} className="gi-block p-5 text-[16px] leading-[1.7]">

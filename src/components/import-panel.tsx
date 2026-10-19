@@ -41,9 +41,10 @@ export function ImportPanel({
       <div className="border-b border-[#4d4d4d] p-5">
         <h2 className="gi-h text-[28px] text-white">Bring a file.</h2>
         <p className="gi-prose-sm mt-3">
-          CSV or JSON. Columns are name, role, employer, start_date as YYYY-MM, and one signal per
-          row: type, date, source_url, note. A day on the start date is YYYY-MM-DD. The queue
-          scores only what you import.
+          CSV or JSON. Four columns are enough: name, role, employer, start_date as YYYY-MM (or
+          YYYY-MM-DD with a day). Signals are optional, one per row: add type, date, source_url,
+          note only when you have a signal. A candidate with no signal still scores from
+          start_date (cliff). The queue scores only what you import.
         </p>
       </div>
 

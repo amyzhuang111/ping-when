@@ -16,6 +16,8 @@ import {
   exampleCsv,
   parseImport,
   sourceUrlFor,
+  TEMPLATE_CSV,
+  TEMPLATE_HEADER,
   UNSCORED_LABEL,
 } from "../src/lib/exchange";
 import { RESEARCHERS } from "../src/lib/researchers";
@@ -108,6 +110,65 @@ for (let i = 0; i < original.length; i += 1) {
       left.driving.type === right.driving.type,
     `${left.person.name} matches after example round-trip (${right.person.name} ${right.score} ${right.status} ${right.driving.type})`,
   );
+}
+
+
+// --- Import fix (Oct 19): candidate-only CSV, signal aliases, template compat ---
+{
+  // (a) 4-column CSV imports; candidates appear and are cliff-scored with no signals.
+  const fourCol = parseImport(
+    "name,role,employer,start_date\nMira Sol,Research scientist,Northline,2025-11-09\nTheo Park,Research engineer,Harbor Glass,2026-01-12\n",
+    "four-col.csv",
+  );
+  assert(fourCol.errors.length === 0, `4-col CSV has no errors (got ${JSON.stringify(fourCol.errors)})`);
+  assert(fourCol.unscored.length === 0, `4-col CSV has no unscored candidates (got ${fourCol.unscored.length})`);
+  assert(fourCol.people.length === 2, `4-col CSV imports 2 candidates (got ${fourCol.people.length})`);
+  assert(
+    fourCol.people.every((person) => person.signals.length === 0),
+    "4-col candidates import with no signals",
+  );
+  const fourScored = scoreResearchers(fourCol.people, DEFAULT_WEIGHTS, asOf);
+  assert(fourScored.length === 2 && fourScored.every((row) => row.signals.some((sig) => sig.type === "cliff")), "4-col candidates appear scored (cliff applies)");
+
+  // Header aliases: company -> employer, start -> start_date (spaces/underscores normalised).
+  const aliased = parseImport(
+    "Name,Role,Company,Start Date\nMira Sol,Research scientist,Northline,2025-11-09\n",
+    "aliased.csv",
+  );
+  assert(aliased.people.length === 1 && aliased.people[0]?.org === "Northline", `aliased headers import (got ${JSON.stringify(aliased.errors)})`);
+
+  // Per-row empty signal fields in an 8-col file: candidate kept, no signal.
+  const emptySignal = parseImport(
+    "name,role,employer,start_date,type,date,source_url,note\nMira Sol,Research scientist,Northline,2025-11-09,,,,\n",
+    "empty-signal.csv",
+  );
+  assert(emptySignal.people.length === 1 && emptySignal.people[0]?.signals.length === 0 && emptySignal.errors.length === 0, "row with empty signal fields imports as candidate with no signal");
+
+  // (b) paper alias scores as release.
+  const paper = parseImport(
+    "name,role,employer,start_date,type,date,source_url,note\nWilla Greer,Research scientist,Paper Dock,2026-10-01,paper,2026-09-21,https://example.com/willa,A paper at one half-life\n",
+    "paper.csv",
+  );
+  assert(paper.errors.length === 0, `paper alias has no errors (got ${JSON.stringify(paper.errors)})`);
+  assert(paper.people[0]?.signals[0]?.type === "release", `paper alias becomes release (got ${paper.people[0]?.signals[0]?.type})`);
+  const paperScored = scoreResearchers(paper.people, DEFAULT_WEIGHTS, asOf)[0];
+  assert(paperScored?.categories.proof === 30, `paper-as-release scores proof 30 at default 0.6 strength (got ${paperScored?.categories.proof})`);
+  // Unknown type: candidate kept, only that signal dropped, row reported, candidate scored (not "unscored").
+  const unknown = parseImport(
+    "name,role,employer,start_date,type,date,source_url,note\nWilla Greer,Research scientist,Paper Dock,2025-11-09,mystery,2026-09-21,https://example.com/willa,Unknown kind\n",
+    "unknown.csv",
+  );
+  assert(unknown.people.length === 1 && unknown.unscored.length === 0, "unknown signal type keeps the candidate scored, not unscored");
+  assert(unknown.people[0]?.signals.length === 0, "unknown signal type drops only that signal");
+  assert(unknown.errors.length === 1 && unknown.errors[0]?.row === 2, `unknown signal type reported on row 2 (got ${JSON.stringify(unknown.errors)})`);
+
+  // (c) 8-column template still works: header bytes unchanged, template parses to its fictional example.
+  const templateOnDisk = readFileSync(new URL("../public/ping-when-template.csv", import.meta.url), "utf8");
+  assert(templateOnDisk === TEMPLATE_CSV, "public template matches TEMPLATE_CSV");
+  assert(templateOnDisk.split("\n")[0] === TEMPLATE_HEADER, "template header line is byte-identical to the original 8 columns");
+  const templateParsed = parseImport(templateOnDisk, "ping-when-template.csv");
+  assert(templateParsed.errors.length === 0 && templateParsed.people.length === 1, `template example row imports 1 candidate (got people=${templateParsed.people.length} errors=${JSON.stringify(templateParsed.errors)})`);
+  assert(templateParsed.people[0]?.signals[0]?.type === "release", "template example row uses valid release type");
 }
 
 const onDisk = readFileSync(new URL("../public/ping-when-example.csv", import.meta.url), "utf8");

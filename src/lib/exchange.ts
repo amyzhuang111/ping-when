@@ -5,23 +5,64 @@ import type { ObservedSignalType, ReleaseKind, Researcher, SeedSignal } from "@/
 
 export const TEMPLATE_HEADER = "name,role,employer,start_date,type,date,source_url,note";
 
-export const TEMPLATE_CSV = `${TEMPLATE_HEADER}\n`;
+export const TEMPLATE_CSV = `${TEMPLATE_HEADER}\nFictional Example,Research scientist,Example Lab (fictional),2025-11-09,release,2026-10-19,https://example.com/fictional-example,Fictional example release (replace this row)\n`;
 
 export const DEFAULT_SIGNAL_STRENGTH = 0.6;
 
 export const UNSCORED_LABEL = "unscored — needs date";
 
-const SIGNAL_TYPES = new Set<ObservedSignalType>([
-  "release",
-  "talk",
-  "oss",
-  "funding",
-  "layoff",
-  "building",
-  "reorg",
-]);
+/** Signal-type aliases, keyed by the type stripped of spaces/hyphens/underscores and lower-cased. */
+const SIGNAL_TYPE_ALIASES: Record<string, ObservedSignalType> = {
+  release: "release",
+  paper: "release",
+  publication: "release",
+  talk: "talk",
+  presentation: "talk",
+  keynote: "talk",
+  oss: "oss",
+  opensource: "oss",
+  github: "oss",
+  funding: "funding",
+  raised: "funding",
+  raise: "funding",
+  layoff: "layoff",
+  layoffs: "layoff",
+  building: "building",
+  reorg: "reorg",
+};
 
-const REQUIRED = ["name", "role", "employer", "start_date", "type", "date", "source_url", "note"] as const;
+function resolveSignalType(raw: string): ObservedSignalType | undefined {
+  const key = raw.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  return SIGNAL_TYPE_ALIASES[key];
+}
+
+/** Only these four columns are required; signal columns are optional. */
+const REQUIRED = ["name", "role", "employer", "start_date"] as const;
+
+/** Header aliases, keyed by the header stripped of spaces/hyphens/underscores and lower-cased. */
+const HEADER_ALIASES: Record<string, string> = {
+  name: "name",
+  role: "role",
+  employer: "employer",
+  company: "employer",
+  startdate: "start_date",
+  start: "start_date",
+  type: "type",
+  date: "date",
+  sourceurl: "source_url",
+  note: "note",
+  strength: "strength",
+  kind: "kind",
+  endson: "ends_on",
+  id: "id",
+  archetype: "archetype",
+  workhook: "work_hook",
+};
+
+function canonicalHeader(cell: string): string {
+  const key = cell.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  return HEADER_ALIASES[key] ?? key;
+}
 
 export interface ImportError {
   row: number;
@@ -193,8 +234,12 @@ function parseJson(text: string, filename: string): ImportResult {
     const record = item as Record<string, unknown>;
     const name = asString(record.name);
     const role = asString(record.role);
-    const employer = asString(record.employer);
-    const startRaw = asString(record.start_date);
+    const employer = asString(record.employer) || asString(record.company);
+    const startRaw =
+      asString(record.start_date) ||
+      asString(record.start) ||
+      asString(record["start-date"]) ||
+      asString(record["start date"]);
     if (!name) {
       errors.push({ row, message: "Missing name." });
       return;
@@ -228,7 +273,7 @@ function parseCsvDocument(text: string): ImportResult {
     return { people: [], unscored: [], errors: [{ row: 1, message: "The file is empty." }] };
   }
   const header = table[0];
-  const columns = indexHeader(header.cells.map((cell) => cell.trim().toLowerCase()));
+  const columns = indexHeader(header.cells);
   const missing = REQUIRED.filter((name) => columns[name] === undefined);
   if (missing.length > 0) {
     return {
@@ -237,7 +282,7 @@ function parseCsvDocument(text: string): ImportResult {
       errors: [
         {
           row: header.line,
-          message: `Header is missing ${missing.join(", ")}. Use the template columns: ${TEMPLATE_HEADER}.`,
+          message: `Header is missing ${missing.join(", ")}. Only four columns are required: name, role, employer, start_date. Signal columns (type, date, source_url, note) are optional. Full template: ${TEMPLATE_HEADER}.`,
         },
       ],
     };
@@ -363,6 +408,18 @@ function pushSignal(
     endsOn: string;
   },
 ) {
+  const resolvedType = resolveSignalType(input.type);
+  if (input.type.trim().toLowerCase().replace(/[\s_-]+/g, "") === "cliff") {
+    errors.push({ row, message: "A cliff is inferred from start_date. Remove this cliff row." });
+    return;
+  }
+  if (!resolvedType) {
+    errors.push({
+      row,
+      message: `Unknown signal type “${input.type || "(blank)"}”. Only this signal was dropped; the candidate was kept and can still be scored from start_date (cliff) or other valid signals. Use release, talk, oss, funding, layoff, building, or reorg (aliases include paper, publication, presentation, keynote, opensource, github, raised, layoffs, re-org).`,
+    });
+    return;
+  }
   if (!input.date) {
     draft.needsDate.push(`Row ${row} signal has no date.`);
   }
@@ -370,17 +427,6 @@ function pushSignal(
   if (input.date && (!dated || !/^\d{4}-\d{2}-\d{2}$/.test(input.date.trim()))) {
     errors.push({ row, message: `Signal date “${input.date}” must be YYYY-MM-DD.` });
     draft.needsDate.push(`Row ${row} signal date is not usable.`);
-  }
-  if (input.type === "cliff") {
-    errors.push({ row, message: "A cliff is inferred from start_date. Remove this cliff row." });
-    return;
-  }
-  if (!SIGNAL_TYPES.has(input.type as ObservedSignalType)) {
-    errors.push({
-      row,
-      message: `Unknown signal type “${input.type || "(blank)"}”. Use release, talk, oss, funding, layoff, building, or reorg.`,
-    });
-    return;
   }
   let strength = DEFAULT_SIGNAL_STRENGTH;
   if (input.strengthRaw) {
@@ -416,7 +462,7 @@ function pushSignal(
   const usableDate = input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date.trim()) ? input.date.trim() : "";
   draft.signals.push({
     row,
-    type: input.type as ObservedSignalType,
+    type: resolvedType,
     date: usableDate,
     sourceUrl,
     note: input.note,
@@ -500,7 +546,8 @@ function finish(drafts: DraftPerson[], errors: ImportError[]): ImportResult {
 function indexHeader(cells: string[]): Record<string, number> {
   const index: Record<string, number> = {};
   cells.forEach((cell, i) => {
-    if (cell && index[cell] === undefined) index[cell] = i;
+    const canonical = canonicalHeader(cell);
+    if (canonical && index[canonical] === undefined) index[canonical] = i;
   });
   return index;
 }

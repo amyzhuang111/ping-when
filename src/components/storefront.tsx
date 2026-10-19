@@ -50,7 +50,7 @@ export function ProductCard({
             {markSeed ? `${seedCode(row.person.id)} · ` : ""}
             {row.person.roleType}
           </p>
-          <p className="price">
+          <p className={`price${row.status === "reach" ? " reach" : ""}`}>
             Score {row.score} · {STATUS_WORD[row.status]}
           </p>
           <p className="role truncate">{drivingLabel(row.driving)}</p>

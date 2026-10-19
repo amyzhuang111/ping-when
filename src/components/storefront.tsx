@@ -57,7 +57,7 @@ export function ProductCard({
         <Heart filled={decision === "approve"} />
       </button>
       <button type="button" className="card" onClick={onOpen} aria-label={`${row.person.name}, score ${row.score}, ${STATUS_WORD[row.status]}. Quick view`}>
-        <div className={`tile${row.status === "reach" ? " blush" : ""}`}>
+        <div className="tile">
           <span className="mono" aria-hidden="true">{initials(row.person.name)}</span>
           <span className="tile-brand" aria-hidden="true">{row.person.org}</span>
           <span className="quick" aria-hidden="true">Quick view</span>

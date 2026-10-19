@@ -92,7 +92,7 @@ export function ImportPanel({
             Load example
           </button>
         </div>
-        <p className="mt-4 text-[12px] muted">Example. 30 fictional seed archetypes. Load it on purpose. Clear it before a real list.</p>
+        {!loaded && <p className="mt-4 text-[12px] muted">Example. 30 fictional seed archetypes. Load it on purpose. Clear it before a real list.</p>}
       </div>
 
       <div>

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "e2e": "node scripts/e2e.mjs",
-    "test": "npx tsx scripts/verify-scoring.ts && npx tsx scripts/verify-import.ts && npx tsx scripts/verify-independent.ts && npx tsx scripts/verify-export.ts"
+    "test": "npx tsx scripts/verify-scoring.ts && npx tsx scripts/verify-import.ts && npx tsx scripts/verify-independent.ts && npx tsx scripts/verify-export.ts && npx tsx scripts/verify-scale.ts",
+    "e2e:firefox": "BROWSER=firefox node scripts/e2e.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "playwright": "^1.64.1",
     "puppeteer-core": "^25.14.0",
     "tailwindcss": "^4",
     "typescript": "^5"

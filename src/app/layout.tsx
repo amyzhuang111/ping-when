@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
-/* Self-hosted Geist and Bodoni Moda (both SIL OFL 1.1, licences in ./fonts), no font CDN. */
-const sans = localFont({
-  src: "./fonts/Geist-Variable.woff2",
-  variable: "--font-geist",
+/* Self-hosted Inter (body), Bodoni Moda (display) and Geist Mono (code), all SIL OFL 1.1, licences in ./fonts. No font CDN. */
+const inter = localFont({
+  src: "./fonts/Inter-latin-wght.woff2",
+  variable: "--font-inter",
   weight: "100 900",
   display: "swap",
 });
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable} ${bodoni.variable} h-full`}>
+    <html lang="en" className={`${inter.variable} ${mono.variable} ${bodoni.variable} h-full`}>
       <body className="min-h-full bg-white text-[#0a0a0a] antialiased">{children}</body>
     </html>
   );

@@ -9,7 +9,7 @@ import { DEFAULT_WEIGHTS } from "@/lib/constants";
 import { drivingLabel } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
 import { approvedQueueCsv, rankedQueueCsv, type ImportResult } from "@/lib/exchange";
-import { scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
+import { closestToTheLine, scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
 import { SIGNAL_GUIDE } from "@/lib/signals";
 import {
   getWeightsServerSnapshot,
@@ -115,7 +115,7 @@ export function PingWhen() {
         ? (a.person.name < b.person.name ? -1 : a.person.name > b.person.name ? 1 : 0)
         : nextCliff(a, asOf) - nextCliff(b, asOf) || a.rank - b.rank;
   const reach = rows.filter((r) => r.status === "reach" && passes(r)).sort(sorter);
-  const near = rows.filter((r) => r.status !== "reach" && passes(r)).sort(sorter);
+  const near = closestToTheLine(rows).filter(passes).sort(sorter);
   const incomplete = unscored
     .filter(
       (u) =>
@@ -299,7 +299,7 @@ export function PingWhen() {
             <main className="mt-8 min-w-0 flex-1 md:mt-0">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <p className="text-[13px] muted tnum" data-testid="summary">
-                  {people.length} scored · {unscored.length} incomplete{workspace && workspace.errors.length > 0 ? ` · ${workspace.errors.length} import errors` : ""}
+                  {people.length} scored · {unscored.length} need a start date{workspace && workspace.errors.length > 0 ? ` · ${workspace.errors.length} import errors` : ""}
                 </p>
                 <label className="flex items-center gap-3">
                   <span className="eyebrow muted">Sort by</span>

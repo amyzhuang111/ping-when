@@ -44,3 +44,6 @@ next-env.d.ts
 # real-person roster stays local (x-growth), never in the public repo
 ping-when-real-demo*.csv
 ping-when-real-demo-sources.md
+
+# screenshots show the real-person roster; keep local only
+/screenshots/

@@ -1,0 +1,311 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+  --radius-4xl: 2px;
+}
+
+:root {
+  --background: #000;
+  --foreground: #ffffffbb;
+  --card: #000;
+  --card-foreground: #ffffffbb;
+  --popover: #000;
+  --popover-foreground: #ffffffbb;
+  --primary: #fff;
+  --primary-foreground: #000;
+  --secondary: #000;
+  --secondary-foreground: #ffffffbb;
+  --muted: #000;
+  --muted-foreground: #888;
+  --accent: #000;
+  --accent-foreground: #ffffffbb;
+  --destructive: #ffffffbb;
+  --border: #4d4d4d;
+  --input: #4d4d4d;
+  --ring: #fff;
+  --chart-1: #fff;
+  --chart-2: #ffffffbb;
+  --chart-3: #888;
+  --chart-4: #4d4d4d;
+  --chart-5: #000;
+  --radius: 2px;
+  --sidebar: #000;
+  --sidebar-foreground: #ffffffbb;
+  --sidebar-primary: #fff;
+  --sidebar-primary-foreground: #000;
+  --sidebar-accent: #000;
+  --sidebar-accent-foreground: #ffffffbb;
+  --sidebar-border: #4d4d4d;
+  --sidebar-ring: #fff;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+    background: #000;
+  }
+  body {
+    background: #000;
+    color: #ffffffbb;
+    font-weight: 400;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  strong,
+  b {
+    font-weight: 400;
+  }
+  a {
+    color: inherit;
+  }
+  a:hover {
+    color: inherit;
+  }
+}
+
+.gi-measure {
+  max-width: 45ch;
+}
+
+.gi-h {
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0;
+  max-width: 45ch;
+}
+
+.gi-prose {
+  max-width: 45ch;
+  font-size: 18px;
+  line-height: 1.7;
+  font-weight: 400;
+  color: #ffffffbb;
+}
+
+.gi-prose-sm {
+  max-width: 45ch;
+  font-size: 16px;
+  line-height: 1.7;
+  font-weight: 400;
+  color: #ffffffbb;
+}
+
+.gi-hero {
+  background: #fff;
+  color: #000;
+}
+
+.gi-hero .gi-prose,
+.gi-hero p {
+  color: #000;
+}
+
+.gi-hero p.gi-subtle {
+  color: #888;
+}
+
+.gi-grid {
+  border: 1px solid #fff;
+  background: #000;
+  border-radius: 2px;
+}
+
+.gi-split {
+  display: grid;
+}
+
+.gi-split > * {
+  padding: 20px;
+}
+
+.gi-split > * + * {
+  border-top: 1px solid #4d4d4d;
+}
+
+.gi-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(12rem, 1.4fr) 4.5rem minmax(9rem, 0.9fr) minmax(11rem, 1.2fr);
+}
+
+.gi-row > * {
+  padding: 20px;
+  min-width: 0;
+}
+
+.gi-row > * + * {
+  border-left: 1px solid #4d4d4d;
+}
+
+.gi-signal {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(14rem, 1.4fr) minmax(12rem, 1fr) minmax(12rem, 1fr);
+}
+
+.gi-signal > * {
+  padding: 20px;
+  min-width: 0;
+}
+
+.gi-signal > * + * {
+  border-left: 1px solid #4d4d4d;
+}
+
+.gi-block + .gi-block {
+  border-top: 1px solid #4d4d4d;
+}
+
+.gi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  border: 1px solid #fff;
+  background: #fff;
+  color: #000;
+  padding: 8px 16px;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.25;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.gi-btn:hover {
+  background: #000;
+  color: #fff;
+}
+
+.gi-btn[aria-pressed="true"] {
+  background: #000;
+  color: #fff;
+}
+
+.gi-card {
+  border-radius: 2px;
+  border: 1px solid #ffffff1a;
+  background: #000;
+  box-shadow: none;
+}
+
+.gi-card:hover {
+  border-color: #fff;
+}
+
+.gi-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: 400;
+}
+
+.gi-subtle {
+  color: #888;
+}
+
+[data-slot="slider-track"] {
+  height: 2px;
+  border-radius: 0;
+  background: #4d4d4d;
+}
+
+[data-slot="slider-range"] {
+  background: #fff;
+  border-radius: 0;
+}
+
+[data-slot="slider-thumb"] {
+  width: 14px;
+  height: 14px;
+  border-radius: 0;
+  border: 1px solid #fff;
+  background: #fff;
+  box-shadow: none;
+}
+
+[data-slot="input"] {
+  border-radius: 0;
+  background: #000;
+  color: #ffffffbb;
+  border-color: #4d4d4d;
+  box-shadow: none;
+}
+
+@media (min-width: 900px) {
+  .gi-split.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .gi-split.cols-3 > * + * {
+    border-top: 0;
+    border-left: 1px solid #4d4d4d;
+  }
+  .gi-split.cols-2 {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  }
+  .gi-split.cols-2 > * + * {
+    border-top: 0;
+    border-left: 1px solid #4d4d4d;
+  }
+}
+
+@media (max-width: 899px) {
+  .gi-row,
+  .gi-signal {
+    grid-template-columns: 1fr;
+  }
+  .gi-row > * + *,
+  .gi-signal > * + * {
+    border-left: 0;
+    border-top: 1px solid #4d4d4d;
+  }
+}

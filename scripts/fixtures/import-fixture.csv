@@ -1,0 +1,7 @@
+name,role,employer,start_date,type,date,source_url,note,strength
+Ada Voss,Research scientist,Northline,2025-11-09,reorg,2026-09-15,https://example.com/ada-reorg,World-model group moved under live games,0.58
+Ada Voss,Research scientist,Northline,2025-11-09,release,2026-09-25,https://example.com/ada-note,Eleven seconds of play,0.74
+Ben Cho,Research engineer,Harbor Glass,2026-01-12,building,2026-10-15,https://example.com/ben-post,Leaving the nightly-train rotation to start a new line,0.86
+Ben Cho,Research engineer,Harbor Glass,2026-01-12,oss,2026-10-17,https://example.com/ben-oss,Loom-2.1 weights and the recipe,0.98
+Cleo Marsh,Scientist,Fieldnote,,release,,https://example.com/cleo,Undated note,
+broken,only,three

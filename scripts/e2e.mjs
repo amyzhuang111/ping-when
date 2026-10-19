@@ -95,6 +95,28 @@ check(`upload: ${EXPECT_UNSCORED} needs-start-date`, s.unscored === EXPECT_UNSCO
 check("upload: every scored person is in New in or Almost there (no cap)", new Set(scored).size === EXPECT_SCORED);
 check(`upload: ${EXPECT_NAME} shown`, [...s.weekNames, ...s.closestNames].some((n) => n.includes(EXPECT_NAME)));
 const before = scored.join(",");
+check("loaded: 'Bring a roster' collapses to a one-line Import link", (await page.locator('[data-testid="import-collapsed"]').count()) === 1 && (await page.getByRole("heading", { name: "Bring a roster." }).count()) === 0);
+const nc = await page.evaluate(() => {
+  const ranked = [...document.querySelectorAll("[data-person]")].sort((a, b) => a.dataset.rank - b.dataset.rank);
+  const reach = ranked.filter((e) => e.dataset.status === "reach");
+  const top = ranked.find((e) => e.dataset.status !== "reach");
+  return { reach: reach.length, section: !!document.querySelector('[data-testid="this-week"]'), line: document.querySelector('[data-testid="none-clear"]')?.textContent ?? null,
+    expect: top ? `Nothing clears 60 this week. Closest: ${top.dataset.name}, ${top.dataset.score}.` : null, href: document.querySelector('[data-testid="closest-link"]')?.getAttribute("href"), topId: top?.id,
+    navNewIn: [...document.querySelectorAll('[data-testid="nav"] a')].some((a) => a.getAttribute("href") === "#new-in") };
+});
+if (nc.reach === 0) {
+  check("empty 'New in' is not shown; data-computed 'Nothing clears' line instead", !nc.section && !nc.navNewIn && nc.line === nc.expect, JSON.stringify(nc));
+  check("'Closest' link targets that card", nc.href === `#${nc.topId}`, JSON.stringify(nc));
+  await page.click('[data-testid="closest-link"]');
+  await page.waitForSelector('[data-testid="drawer"]');
+  check("'Closest' link opens that person", (await page.locator('[data-testid="drawer"] h1').textContent()) === nc.expect.split("Closest: ")[1].replace(/, \d+\.$/, ""));
+  const scrim = await page.evaluate(() => getComputedStyle(document.querySelector(".scrim")).backgroundColor);
+  check("drawer overlay dims at 40%", scrim === "rgba(10, 10, 10, 0.4)", scrim);
+  await page.keyboard.press("Escape");
+} else {
+  check("'New in' shown because someone clears the line", nc.section && nc.line === null, JSON.stringify(nc));
+}
+check("no heart icon on cards (approve lives in the drawer)", (await page.locator('[data-person] button[aria-label^="Save "], .heart').count()) === 0);
 
 // 3. Cliff weight to 70 via the number box
 await setNumber(page, "70");
@@ -194,6 +216,12 @@ check("real roster: long source URLs stay inside their column", overflowing.leng
 if (EXPECT_NAME === "Parker-Holder") {
   check("real roster: full paper titles shown (Beyond the Visible, Consistent Long-Horizon)", allText.includes("Generative Pixel-Aligned Geometry Beyond the Visible") && allText.includes("Local-Global Rewards for Consistent Long-Horizon Video Generation"));
 }
+{
+  // Scored people only: incomplete drawers list what is missing, not signals (never scored).
+  const notes = [...new Set(csv.split("\n").slice(1).filter((l) => l && l.split(",")[3]).map((l) => (l.match(/("(?:[^"]|"")*"|[^,]*)$/) || [""])[0].replace(/^"|"$/g, "").replace(/""/g, '"')).filter(Boolean))];
+  const missing = notes.filter((n) => !allText.includes(n));
+  check(`real roster: all ${notes.length} scored-people source titles shown in full in the drawers (no truncation)`, notes.length > 0 && missing.length === 0, missing.join(" | "));
+}
 const summary = await page.locator('[data-testid="summary"]').textContent();
 check("summary counts scored and incomplete (no 'All scored')", summary.includes(`${EXPECT_SCORED} scored`) && summary.includes(`${EXPECT_UNSCORED} need a start date`) && !allText.includes("All scored"), summary);
 await page.addInitScript(() => {
@@ -233,6 +261,10 @@ for (let i = 0; i < 6 && noSource === 0; i++) {
   await page.keyboard.press("Escape");
 }
 check("fictional example: placeholder signals say 'Fictional seed signal, no source link'", noSource > 0);
+const exNames = await page.evaluate(() => [...document.querySelectorAll("[data-person]")].map((e) => e.dataset.name));
+const exFile = readFileSync("public/ping-when-example.csv", "utf8").split("\n").slice(1).filter(Boolean).map((l) => l.split(",")[0].replace(/^"|"$/g, ""));
+const realNames = csv.split("\n").slice(1).filter(Boolean).map((l) => l.split(",")[0]);
+check("Load example: 30 people, every one from the fictional example file, none from the real roster", exNames.length === 30 && exNames.every((n) => exFile.includes(n)) && !exNames.some((n) => realNames.includes(n)), JSON.stringify(exNames.slice(0, 3)));
 check("example: labelled as fictional seed data", (await page.content()).includes("30 fictional seed archetypes"));
 const exBefore = await state(page);
 await setNumber(page, "70");
@@ -283,6 +315,9 @@ for (const width of [375, 1440]) {
       bg: cs(document.body).backgroundColor,
       ink: cs(document.body).color,
       borders,
+      firstTile: document.querySelector("[data-person] .tile")?.getBoundingClientRect().top ?? 9999,
+      banner: (() => { const b = document.querySelector('[data-testid="announcement"]'); return { h: b.getBoundingClientRect().height, sw: b.scrollWidth, cw: b.clientWidth, text: b.innerText.trim() }; })(),
+      nav: (() => { const n = document.querySelector('[data-testid="nav"]'); const tops = [...n.querySelectorAll("a")].map((a) => Math.round(a.getBoundingClientRect().top)); return { rows: new Set(tops).size, overflowX: getComputedStyle(n).overflowX, sw: n.scrollWidth, cw: n.clientWidth }; })(),
       loaded: [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "").toLowerCase()),
     };
   });
@@ -290,6 +325,11 @@ for (const width of [375, 1440]) {
   check(`${width}px: smallest visible text >= 12px`, m.minFont >= 12, String(m.minFont));
   check(`${width}px: spec fonts (h1 Bodoni Moda, body Inter)`, /bodoni/i.test(m.h1) && /^"?inter\b/i.test(m.body) && m.loaded.includes("inter") && m.loaded.includes("bodoni"), `${m.h1} | ${m.body} | loaded ${m.loaded}`);
   check(`${width}px: spec colours (#FFFFFF bg, #0A0A0A ink, #F7F1E8 tiles), no shadows`, m.bg === "rgb(255, 255, 255)" && m.ink === "rgb(10, 10, 10)" && m.tile === "rgb(247, 241, 232)" && m.shadows === 0, JSON.stringify(m));
+  if (width === 1440) check("1440px: first card sits above the fold (tile top < 900px)", m.firstTile < 900, String(m.firstTile));
+  if (width === 375) {
+    check("375px: banner is one line 'NOTHING IS SENT · STAYS IN YOUR BROWSER'", m.banner.text === "NOTHING IS SENT · STAYS IN YOUR BROWSER" && m.banner.h <= 34 && m.banner.sw <= m.banner.cw, JSON.stringify(m.banner));
+    check("375px: nav is a single row that scrolls sideways", m.nav.rows === 1 && m.nav.overflowX === "auto", JSON.stringify(m.nav));
+  }
   check(`${width}px: no borders other than #E8E8E8 hairlines`, m.borders.length === 0, JSON.stringify(m.borders.slice(0, 5)));
   if (SHOT) {
     await page.screenshot({ path: path.join(SHOT, `${ENGINE}-${width}-roster.png`), fullPage: false });

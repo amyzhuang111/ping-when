@@ -5,7 +5,7 @@ import { AutomationPanel } from "@/components/automation-panel";
 import { ImportPanel } from "@/components/import-panel";
 import { DetailDrawer, IncompleteCard, IncompleteDrawer, ProductCard } from "@/components/storefront";
 import { WeightPanel } from "@/components/weight-panel";
-import { DEFAULT_WEIGHTS } from "@/lib/constants";
+import { DEFAULT_WEIGHTS, REACH_THRESHOLD } from "@/lib/constants";
 import { drivingLabel } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
 import { approvedQueueCsv, rankedQueueCsv, type ImportResult } from "@/lib/exchange";
@@ -125,6 +125,8 @@ export function PingWhen() {
     )
     .sort((a, b) => (sort === "name" ? (a.name < b.name ? -1 : 1) : 0));
 
+  const filtering = statusF.size > 0 || orgF.size > 0 || typeF.size > 0;
+  const closest = closestToTheLine(rows)[0];
   const entered = rows.filter((r) => r.status === "reach" && baselineById.get(r.person.id)?.status !== "reach");
   const left = rows.filter((r) => r.status !== "reach" && baselineById.get(r.person.id)?.status === "reach");
   const orderSame = rows.every((r) => baselineById.get(r.person.id)?.rank === r.rank);
@@ -167,10 +169,11 @@ export function PingWhen() {
   const datasetLine = !loaded ? "" : example ? "EXAMPLE DATA, fictional" : "Real public sources · scores are illustrative";
 
   return (
-    <div className="min-h-full bg-white">
+    <div className="min-h-full bg-[var(--paper)]">
       <div className="hair-b">
-        <p className="eyebrow px-4 py-2 text-center" data-testid="announcement">
-          Scored today · nothing is sent · data stays in your browser
+        <p className="eyebrow whitespace-nowrap px-4 py-2 text-center" data-testid="announcement">
+          <span className="md:hidden">Nothing is sent · stays in your browser</span>
+          <span className="hidden md:inline">Scored today · nothing is sent · data stays in your browser</span>
         </p>
       </div>
 
@@ -180,24 +183,26 @@ export function PingWhen() {
           <p className="eyebrow mt-3 min-h-4 muted" data-testid="dataset">
             {hydrated ? datasetLine : ""}
           </p>
-          <nav className="mt-5 flex flex-wrap justify-center gap-x-8 gap-y-2" aria-label="Sections">
-            <a className="eyebrow" href="#new-in">New in</a>
+          <nav className="navrow mt-5" aria-label="Sections" data-testid="nav">
+            {(!loaded || reach.length > 0) && <a className="eyebrow" href="#new-in">New in</a>}
             <a className="eyebrow" href="#almost">Almost there</a>
-            <a className="eyebrow" href="#incomplete">Incomplete</a>
+            {(!loaded || unscored.length > 0) && <a className="eyebrow" href="#incomplete">Incomplete</a>}
             <a className="eyebrow" href="#import">Import</a>
             <a className="eyebrow" href="#method">Method</a>
           </nav>
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1440px] px-4 py-16 md:px-10 md:py-24">
+      <section className={`mx-auto max-w-[1440px] px-4 md:px-10 ${loaded ? "py-8 md:py-10" : "py-16 md:py-24"}`} data-testid="hero">
         <p className="eyebrow muted">
           Week of {formatDay(weekOf(asOf))} through {formatDay(weekEnding(asOf))}
         </p>
-        <h1 className="serif mt-6 max-w-[18ch] text-[44px] leading-[1.05] md:text-[72px]">Sourcing is automated. Timing is not.</h1>
-        <p className="prose-s mt-6 text-[16px]">
-          It decides when to reach out. A person still writes. The queue scores only the roster you import.
-        </p>
+        <h1 className={`serif max-w-[18ch] leading-[1.05] ${loaded ? "mt-3 text-[32px] md:max-w-none md:text-[40px]" : "mt-6 text-[44px] md:text-[72px]"}`}>Sourcing is automated. Timing is not.</h1>
+        {!loaded && (
+          <p className="prose-s mt-6 text-[16px]">
+            It decides when to reach out. A person still writes. The queue scores only the roster you import.
+          </p>
+        )}
       </section>
 
       <div className="mx-auto max-w-[1440px] px-4 pb-16 md:px-10">
@@ -236,7 +241,7 @@ export function PingWhen() {
         )}
 
         {loaded && (
-          <div className="mt-16 hair-t pt-10 md:flex md:gap-12">
+          <div className="mt-8 hair-t pt-8 md:flex md:gap-12">
             <div className="md:hidden">
               <button type="button" className="tlink" aria-expanded={refineOpen} onClick={() => setRefineOpen(!refineOpen)}>
                 {refineOpen ? "Hide refine and filters" : "Refine and filter"}
@@ -356,20 +361,30 @@ export function PingWhen() {
                 </div>
               )}
 
-              {people.length > 0 && (
+              {people.length > 0 && (reach.length > 0 || filtering) && (
                 <Section id="new-in" testid="this-week" title="New in: ready to reach" count={reach.length} empty="No one clears the line at these weights.">
                   {reach.slice(0, limit.reach).map((r) => (
                     <ProductCard key={r.person.id} row={r} before={baselineById.get(r.person.id)} decision={decisions[r.person.id]} markSeed={example}
-                      onOpen={() => setOpenId(r.person.id)} onSave={() => onDecide(r.person.id, "approve")} />
+                      onOpen={() => setOpenId(r.person.id)} />
                   ))}
                   <More shown={limit.reach} total={reach.length} onMore={() => setLimit({ ...limit, reach: limit.reach + PAGE })} />
                 </Section>
+              )}
+              {people.length > 0 && reach.length === 0 && !filtering && closest && (
+                <p className="mt-10 text-[14px] tnum" data-testid="none-clear">
+                  Nothing clears {REACH_THRESHOLD} this week. Closest:{" "}
+                  <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
+                    onClick={() => setOpenId(closest.person.id)}>
+                    {closest.person.name}, {closest.score}
+                  </a>
+                  .
+                </p>
               )}
               {people.length > 0 && (
                 <Section id="almost" testid="closest" title="Almost there" count={near.length} sub="Highest scores that are not ready this week." empty="No one here with these filters.">
                   {near.slice(0, limit.near).map((r) => (
                     <ProductCard key={r.person.id} row={r} before={baselineById.get(r.person.id)} decision={decisions[r.person.id]} markSeed={example}
-                      onOpen={() => setOpenId(r.person.id)} onSave={() => onDecide(r.person.id, "approve")} />
+                      onOpen={() => setOpenId(r.person.id)} />
                   ))}
                   <More shown={limit.near} total={near.length} onMore={() => setLimit({ ...limit, near: limit.near + PAGE })} />
                 </Section>

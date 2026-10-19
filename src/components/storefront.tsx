@@ -21,41 +21,22 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-function Heart({ filled }: { filled: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill={filled ? "#0a0a0a" : "none"} stroke="#0a0a0a" strokeWidth="1.2">
-      <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.4 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.6 0 5.6 3.5 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2z" />
-    </svg>
-  );
-}
-
 export function ProductCard({
   row,
   before,
   decision,
   onOpen,
-  onSave,
   markSeed,
 }: {
   row: ScoredResearcher;
   before?: ScoredResearcher;
   decision?: Decision;
   onOpen: () => void;
-  onSave: () => void;
   markSeed: boolean;
 }) {
   const moved = before && before.rank !== row.rank ? `Was ${before.rank}, now ${row.rank}` : "";
   return (
-    <div className="relative" data-person={row.person.id} data-name={row.person.name} data-score={row.score} data-status={row.status} data-rank={row.rank}>
-      <button
-        type="button"
-        className="heart"
-        aria-label={decision === "approve" ? `Saved: ${row.person.name} approved. Click to undo` : `Save ${row.person.name} (approve)`}
-        aria-pressed={decision === "approve"}
-        onClick={onSave}
-      >
-        <Heart filled={decision === "approve"} />
-      </button>
+    <div className="relative scroll-mt-24" id={`card-${row.person.id}`} data-person={row.person.id} data-name={row.person.name} data-score={row.score} data-status={row.status} data-rank={row.rank}>
       <button type="button" className="card" onClick={onOpen} aria-label={`${row.person.name}, score ${row.score}, ${STATUS_WORD[row.status]}. Quick view`}>
         <div className="tile">
           <span className="mono" aria-hidden="true">{initials(row.person.name)}</span>

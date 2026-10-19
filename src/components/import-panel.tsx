@@ -19,12 +19,14 @@ export function ImportPanel({
   const [paste, setPaste] = useState("");
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState("");
+  const [open, setOpen] = useState(false);
 
   function take(text: string, filename: string, source: "file" | "paste") {
     const t0 = performance.now();
     const result = parseImport(text, filename);
     onImport(result, source, filename, performance.now() - t0);
     setNotice("");
+    setOpen(false);
   }
 
   async function loadExample() {
@@ -38,8 +40,20 @@ export function ImportPanel({
     const result = parseImport(text, "ping-when-example.csv");
     onImport(result, "example", "Example. 30 fictional seed archetypes.", performance.now() - t0);
     setNotice("");
+    setOpen(false);
   }
 
+  const loadedLine = example ? "Example. 30 fictional seed archetypes." : label;
+  if (loaded && !open) {
+    return (
+      <section id="import" className="flex flex-wrap items-baseline gap-x-6 gap-y-2" data-testid="import-collapsed">
+        <p className="text-[13px] muted" data-loaded={example ? "example" : "roster"}>Loaded: {loadedLine}</p>
+        <button type="button" className="tlink" onClick={() => setOpen(true)} data-testid="import-open">Import</button>
+        <button type="button" className="tlink" onClick={onClear} data-testid="clear-data">Clear my data</button>
+        {notice && <p className="text-[13px]">{notice}</p>}
+      </section>
+    );
+  }
   return (
     <section id="import" className="grid gap-10 md:grid-cols-2">
       <div
@@ -122,6 +136,11 @@ export function ImportPanel({
               Clear my data
             </button>
           )}
+          {loaded && (
+            <button type="button" className="tlink" onClick={() => setOpen(false)}>
+              Hide import
+            </button>
+          )}
         </div>
         <p className="mt-4 text-[12px] muted" data-testid="storage-note">
           Your roster, weights and decisions are stored only in this browser (localStorage). Nothing is uploaded or sent.
@@ -129,7 +148,7 @@ export function ImportPanel({
         </p>
         {loaded && (
           <p className="mt-2 text-[12px] muted" data-loaded={example ? "example" : "roster"}>
-            Loaded: {example ? "Example. 30 fictional seed archetypes." : label}
+            Loaded: {loadedLine}
           </p>
         )}
         {notice && <p className="mt-3 text-[13px]">{notice}</p>}

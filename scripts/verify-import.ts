@@ -19,7 +19,7 @@ import {
   UNSCORED_LABEL,
 } from "../src/lib/exchange";
 import { RESEARCHERS } from "../src/lib/researchers";
-import { cliffProximity, scoreResearchers } from "../src/lib/scoring";
+import { cliffProximity, closestToTheLine, scoreResearchers } from "../src/lib/scoring";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -233,6 +233,32 @@ for (let i = 0; i < original.length; i += 1) {
   assert(noName.people.length === 0 && noName.unscored.length === 0 && noName.errors.length === 1, "no-name file is rejected whole");
   assert(noName.errors[0]?.row === 1 && noName.errors[0]?.message.includes("Saw: Foo, Bar"), `no-name error echoes saw headers on row 1 (got ${JSON.stringify(noName.errors)})`);
   assert(noName.errors[0]?.message.includes("Only name is required"), "no-name error says only name is required");
+}
+
+// --- Closest to the line: no 4-person cap (Oct 19) ---
+{
+  const six = parseImport(
+    "name,role,employer,start_date\n" +
+      "Ana One,Scientist,Northline,2025-11-09\n" +
+      "Bob Two,Scientist,Northline,2025-10-01\n" +
+      "Cat Three,Scientist,Harbor Glass,2024-11-09\n" +
+      "Dan Four,Scientist,Harbor Glass,2023-11-09\n" +
+      "Eve Five,Scientist,Fieldglass,2025-08-15\n" +
+      "Fin Six,Scientist,Fieldglass,2024-06-01\n",
+    "six-scored.csv",
+  );
+  assert(six.errors.length === 0 && six.people.length === 6, `6-person import scores all 6 (got people=${six.people.length} errors=${JSON.stringify(six.errors)})`);
+  const sixScored = scoreResearchers(six.people, DEFAULT_WEIGHTS, asOf);
+  assert(sixScored.length === 6, `6-person import yields 6 scored rows (got ${sixScored.length})`);
+  const closest = closestToTheLine(sixScored);
+  assert(closest.length === 6, `Closest to the line shows all 6 scored people, not capped at 4 (got ${closest.length})`);
+  assert(
+    closest.map((row) => row.person.name).join(",") === sixScored.filter((row) => row.status !== "reach").map((row) => row.person.name).join(","),
+    "Closest to the line maps the full non-reach scored array in rank order",
+  );
+  const componentSource = readFileSync(new URL("../src/components/ping-when.tsx", import.meta.url), "utf8");
+  assert(!componentSource.includes("slice(0, 4)") && !componentSource.includes("slice(0,4)"), "PingWhen component has no slice(0, 4) cap");
+  assert(componentSource.includes("closestToTheLine(rows)"), "PingWhen renders Closest via closestToTheLine(rows)");
 }
 
 const onDisk = readFileSync(new URL("../public/ping-when-example.csv", import.meta.url), "utf8");

@@ -9,7 +9,7 @@ import { DEFAULT_WEIGHTS } from "@/lib/constants";
 import { drivingLabel, STATUS_LABEL } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
 import { approvedQueueCsv, type ImportResult } from "@/lib/exchange";
-import { scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
+import { closestToTheLine, scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
 import {
   getWorkspaceServerSnapshot,
   getWorkspaceSnapshot,
@@ -79,7 +79,7 @@ export function PingWhen() {
   }, [people]);
 
   const queue = rows.filter((row) => row.status === "reach");
-  const bubble = rows.filter((row) => row.status !== "reach").slice(0, 4);
+  const bubble = closestToTheLine(rows);
   const dirty = !weightsEqual(weights, DEFAULT_WEIGHTS);
   const loaded =
     workspace !== null &&

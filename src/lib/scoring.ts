@@ -130,6 +130,11 @@ function squash(raws: number[]): number {
   return Math.min(100, total);
 }
 
+/** Closest to the line: every scored person who is not in this week's queue, in rank order. No cap — a scored person must never be silently hidden. */
+export function closestToTheLine(rows: ScoredResearcher[]): ScoredResearcher[] {
+  return rows.filter((row) => row.status !== "reach");
+}
+
 export function scoreResearchers(
   people: Researcher[],
   weights: Weights,

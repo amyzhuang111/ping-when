@@ -1,3 +1,4 @@
+import { realSourceUrl } from "@/lib/links";
 import {
   CLIFF_PEAK_DAYS,
   CLIFF_SIGMA,
@@ -212,7 +213,7 @@ function scoreOne(person: Researcher, weights: Weights, asOf: Date): ScoredResea
       windowCloses: span.closes,
       windowState: windowStateFor(span.opens, span.closes, asOf),
       kind: signal.kind,
-      sourceUrl: signal.sourceUrl,
+      sourceUrl: realSourceUrl(signal.sourceUrl),
     };
   });
 

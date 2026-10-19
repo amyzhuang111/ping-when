@@ -1,3 +1,4 @@
+import { realSourceUrl } from "@/lib/links";
 import { parseStartDate } from "@/lib/dates";
 import type { ScoredResearcher } from "@/lib/scoring";
 import { firstTouch } from "@/lib/copy";
@@ -5,7 +6,7 @@ import type { ObservedSignalType, ReleaseKind, Researcher, SeedSignal } from "@/
 
 export const TEMPLATE_HEADER = "name,role,employer,start_date,type,date,source_url,note";
 
-export const TEMPLATE_CSV = `${TEMPLATE_HEADER}\nFictional Example,Research scientist,Example Lab (fictional),2025-11-09,release,2026-10-19,https://example.com/fictional-example,Fictional example release (replace this row)\n`;
+export const TEMPLATE_CSV = `${TEMPLATE_HEADER}\nFictional Example,Research scientist,Example Lab (fictional),2025-11-09,release,2026-10-19,,Fictional example release (replace this row)\n`;
 
 export const DEFAULT_SIGNAL_STRENGTH = 0.6;
 
@@ -225,7 +226,7 @@ export function exampleCsv(people: Researcher[]): string {
           ]),
         ];
       }
-      return person.signals.map((signal, index) =>
+      return person.signals.map((signal) =>
         csvRow([
           person.name,
           person.roleType,
@@ -233,7 +234,7 @@ export function exampleCsv(people: Researcher[]): string {
           person.roleStart,
           signal.type,
           signal.date,
-          signal.sourceUrl ?? `https://example.com/ping-when/${person.id}/${index + 1}`,
+          realSourceUrl(signal.sourceUrl) ?? "",
           signal.title,
           String(signal.strength),
           signal.kind ?? "",

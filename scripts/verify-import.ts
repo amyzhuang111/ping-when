@@ -69,7 +69,7 @@ assert(ada?.driving.type === "cliff", `Ada is cliff-driven (got ${ada?.driving.t
 assert(ada?.monthsInRole === 11, `Ada has 11 months in role (got ${ada?.monthsInRole})`);
 assert(ben?.status === "reach" && ben.score === 63, `Ben is reach at 63 (got ${ben?.status} ${ben?.score})`);
 assert(ben?.driving.type === "oss", `Ben is driven by the open-source release (got ${ben?.driving.type})`);
-assert(sourceUrlFor(ben!) === "https://example.com/ben-oss", "Ben’s driving signal keeps its source url");
+assert(sourceUrlFor(ben!) === "", "Ben’s placeholder example.com source is dropped, never linked");
 
 const cliffWeek = scoreResearchers(imported.people, { cliff: 70, proof: 40, shift: 30 }, asOf);
 const adaCliff = cliffWeek.find((row) => row.person.name === "Ada Voss");
@@ -82,7 +82,12 @@ const exported = approvedQueueCsv(balanced, new Set([ben!.person.id]));
 const exportedLines = exported.trim().split("\n");
 assert(exportedLines.length === 2, `approved export has a header and one row (got ${exportedLines.length})`);
 assert(exportedLines[1]?.startsWith("Ben Cho,63,"), `export names Ben Cho at score 63 (${exportedLines[1]})`);
-assert(exported.includes("https://example.com/ben-oss"), "export includes Ben’s source url");
+assert(!exported.includes("example.com"), "export never carries a placeholder example.com url");
+{
+  const real = parseImport("name,employer,start_date,type,date,source_url\nReal Url,Lab,2025-11-09,release,2026-10-10,https://arxiv.org/abs/2408.14837\n", "real.csv");
+  const realRow = scoreResearchers(real.people, DEFAULT_WEIGHTS, new Date(Date.UTC(2026, 9, 19)))[0];
+  assert(sourceUrlFor(realRow) === "https://arxiv.org/abs/2408.14837", "a real source url survives import and scoring");
+}
 
 const bare = parseImport(
   "name,role,employer,start_date,type,date,source_url,note\nSam Hill,Scientist,Northline,2025-11-09,release,2026-10-19,https://example.com/sam,Same-day note\n",

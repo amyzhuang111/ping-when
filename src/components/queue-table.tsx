@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NO_SOURCE_TEXT } from "@/lib/links";
 import { firstTouch, statusNote, whyNow, windowPhrase, STATUS_LABEL, drivingLabel } from "@/lib/copy";
 import { formatDay, parseISODate } from "@/lib/dates";
 import { formulaLine, seedCode, type ScoredResearcher } from "@/lib/scoring";
@@ -135,7 +136,7 @@ export function QueueTable({
               )}
             </div>
             {open && (
-              <SignalLines row={row} weights={weights} peers={peers} />
+              <SignalLines row={row} weights={weights} peers={peers} seed={markSeed} />
             )}
           </div>
         );
@@ -148,10 +149,12 @@ function SignalLines({
   row,
   weights,
   peers,
+  seed,
 }: {
   row: ScoredResearcher;
   weights: Weights;
   peers: Researcher[];
+  seed: boolean;
 }) {
   return (
     <div className="border-t border-[#4d4d4d]">
@@ -205,7 +208,7 @@ function SignalLines({
                     {signal.factorLabel}. {windowPhrase(signal)}.
                   </p>
                   <p className="mt-3 text-[16px] leading-[1.7]">{guide.what}</p>
-                  {signal.sourceUrl && (
+                  {signal.sourceUrl ? (
                     <a
                       className="gi-mono mt-3 block text-[12px] leading-5 underline"
                       href={signal.sourceUrl}
@@ -214,6 +217,8 @@ function SignalLines({
                     >
                       {signal.sourceUrl}
                     </a>
+                  ) : (
+                    <p className="gi-mono mt-3 text-[12px] leading-5 text-[#888]" data-no-source="true">{seed ? NO_SOURCE_TEXT : "No source link given"}</p>
                   )}
                 </div>
                 <div className="text-[16px] leading-[1.7]">{guide.why}</div>

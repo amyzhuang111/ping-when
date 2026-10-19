@@ -134,6 +134,57 @@ check("paste: same counts as upload, 0 errors", [...s.week, ...s.closest].length
 check("paste: same order as upload", [...s.week, ...s.closest].join(",") === before);
 await page.close();
 
+// 6a. Links: no placeholder anywhere; every real-roster link resolves (non-404)
+async function openAllSignals(p) {
+  await p.evaluate(() => [...document.querySelectorAll("button")].filter((b) => /^Signals$/.test(b.textContent.trim())).forEach((b) => b.click()));
+  await new Promise((r) => setTimeout(r, 300));
+}
+async function placeholderCheck(p, label) {
+  const bad = await p.evaluate(() => {
+    const hrefs = [...document.querySelectorAll("a[href]")].map((a) => a.href).filter((h) => /example\.(com|org|net)/i.test(h));
+    const text = /example\.(com|org|net)/i.test(document.body.innerText);
+    return { hrefs, text };
+  });
+  check(`${label}: no example.com href or text on page`, bad.hrefs.length === 0 && !bad.text, JSON.stringify(bad));
+}
+page = await fresh();
+await (await page.$('input[type="file"]')).uploadFile(ROSTER);
+await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
+await openAllSignals(page);
+await placeholderCheck(page, "real roster (signals open)");
+const collected = [];
+const placeholderHits = [];
+const nButtons = await page.$$eval("button", (bs) => bs.filter((b) => /^(Signals|Hide signals)$/.test(b.textContent.trim())).length);
+for (let i = 0; i < nButtons; i++) {
+  await page.evaluate((i) => {
+    const bs = [...document.querySelectorAll("button")].filter((b) => /^(Signals|Hide signals)$/.test(b.textContent.trim()));
+    if (bs[i] && bs[i].textContent.trim() === "Signals") bs[i].click();
+  }, i);
+  await new Promise((r) => setTimeout(r, 120));
+  collected.push(...(await page.$$eval("[data-person] a[href^='http']", (as) => as.map((a) => a.href))));
+  if (/example\.(com|org|net)/i.test(await page.evaluate(() => document.body.innerText + [...document.querySelectorAll("a[href]")].map((a) => a.href).join(" ")))) placeholderHits.push(i + 1);
+}
+const links = [...new Set(collected)];
+check("real roster: no example.com on any opened card", placeholderHits.length === 0, placeholderHits.join(","));
+const dead = [];
+for (const url of links) {
+  let status = 0;
+  try {
+    const res = await fetch(url, { method: "GET", redirect: "follow", headers: { "user-agent": "Mozilla/5.0 (ping-when link check)" }, signal: AbortSignal.timeout(15000) });
+    status = res.status;
+  } catch { status = -1; }
+  if (status === 404 || status === 410 || status === -1) dead.push(`${status} ${url}`);
+}
+check(`real roster: all ${links.length} source links resolve (non-404)`, links.length > 0 && dead.length === 0, dead.join(" | "));
+await page.close();
+page = await fresh();
+await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Load example").click());
+await page.waitForSelector('[data-testid="closest"]', { timeout: 10000 });
+await openAllSignals(page);
+await placeholderCheck(page, "fictional example (signals open)");
+check("fictional example: placeholder signals say 'Fictional seed signal, no source link'", (await page.$$eval("[data-no-source]", (els) => els.filter((e) => e.textContent.includes("Fictional seed signal, no source link")).length)) > 0);
+await page.close();
+
 // 6b. Labelled fictional example: cliff 70 must re-order the queue
 page = await fresh();
 await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Load example").click());

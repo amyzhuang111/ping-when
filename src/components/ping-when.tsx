@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { AutomationPanel } from "@/components/automation-panel";
 import { ImportPanel } from "@/components/import-panel";
-import { QueueTable } from "@/components/queue-table";
+import { DetailDrawer, IncompleteCard, IncompleteDrawer, ProductCard } from "@/components/storefront";
 import { WeightPanel } from "@/components/weight-panel";
 import { DEFAULT_WEIGHTS } from "@/lib/constants";
-import { drivingLabel, STATUS_LABEL } from "@/lib/copy";
+import { drivingLabel } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
 import { approvedQueueCsv, rankedQueueCsv, type ImportResult } from "@/lib/exchange";
-import { closestToTheLine, scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
+import { scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
+import { SIGNAL_GUIDE } from "@/lib/signals";
 import {
   getWeightsServerSnapshot,
   getWeightsSnapshot,
@@ -22,531 +23,438 @@ import {
   type Decision,
   type Workspace,
 } from "@/lib/storage";
-import type { Researcher, Weights } from "@/lib/types";
+import type { Researcher, SignalType, Status, Weights } from "@/lib/types";
 
 const NO_PEOPLE: Researcher[] = [];
+const PAGE = 48;
 let operatorDay: Date | undefined;
+const noop = () => () => {};
+const readOperatorDay = () => (operatorDay ??= todayUTC());
+const readServerDay = () => todayUTC();
+const clientTrue = () => true;
+const serverFalse = () => false;
 
-function subscribeClock(): () => void {
-  return () => {};
+type Sort = "score" | "cliff" | "name";
+type StatusFilter = Status | "incomplete";
+
+function nextCliff(row: ScoredResearcher, asOf: Date): number {
+  const soon = row.cliffMarks
+    .map((m) => Date.parse(m.date))
+    .filter((t) => t >= asOf.getTime() - 40 * 86400000)
+    .sort((a, b) => a - b);
+  return soon[0] ?? Number.POSITIVE_INFINITY;
 }
 
-function readOperatorDay(): Date {
-  operatorDay ??= todayUTC();
-  return operatorDay;
+function download(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
-
-function readServerDay(): Date {
-  return todayUTC();
-}
-
-type View = "week" | "rank" | "next";
-type Band = "all" | "reach" | "warm" | "wait" | "cliff";
 
 export function PingWhen() {
+  const hydrated = useSyncExternalStore(noop, clientTrue, serverFalse);
   const storedWeights = useSyncExternalStore(subscribeWeights, getWeightsSnapshot, getWeightsServerSnapshot);
   const weights: Weights = storedWeights ?? DEFAULT_WEIGHTS;
-  const setWeights = (next: Weights) => writeWeights(weightsEqual(next, DEFAULT_WEIGHTS) ? null : next);
-  const [view, setView] = useState<View>("week");
-  const [band, setBand] = useState<Band>("all");
-  const workspace = useSyncExternalStore(
-    subscribeWorkspace,
-    getWorkspaceSnapshot,
-    getWorkspaceServerSnapshot,
+  const setWeights = useCallback(
+    (next: Weights) => writeWeights(weightsEqual(next, DEFAULT_WEIGHTS) ? null : next),
+    [],
   );
-  const [exportText, setExportText] = useState("");
-  const asOf = useSyncExternalStore(subscribeClock, readOperatorDay, readServerDay);
+  const workspace = useSyncExternalStore(subscribeWorkspace, getWorkspaceSnapshot, getWorkspaceServerSnapshot);
+  const asOf = useSyncExternalStore(noop, readOperatorDay, readServerDay);
+
+  const [sort, setSort] = useState<Sort>("score");
+  const [statusF, setStatusF] = useState<Set<StatusFilter>>(new Set());
+  const [orgF, setOrgF] = useState<Set<string>>(new Set());
+  const [typeF, setTypeF] = useState<Set<SignalType>>(new Set());
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [limit, setLimit] = useState({ reach: PAGE, near: PAGE, incomplete: PAGE });
+  const [importMs, setImportMs] = useState<number | null>(null);
 
   const people = workspace?.people ?? NO_PEOPLE;
+  const unscored = useMemo(() => workspace?.unscored ?? [], [workspace]);
   const decisions = workspace?.decisions ?? {};
   const example = workspace?.source === "example";
-
-  const rows = useMemo(
-    () => scoreResearchers(people, weights, asOf),
-    [people, weights, asOf],
-  );
-  const baseline = useMemo(
-    () => scoreResearchers(people, DEFAULT_WEIGHTS, asOf),
-    [people, asOf],
-  );
-  const baselineById = useMemo(
-    () => new Map(baseline.map((row) => [row.person.id, row])),
-    [baseline],
-  );
-  const peersById = useMemo(() => {
-    const map = new Map<string, Researcher[]>();
-    for (const person of people) {
-      map.set(
-        person.id,
-        people.filter((other) => other.org === person.org && other.id !== person.id),
-      );
-    }
-    return map;
-  }, [people]);
-
-  const queue = rows.filter((row) => row.status === "reach");
-  const bubble = closestToTheLine(rows);
-  const dirty = !weightsEqual(weights, DEFAULT_WEIGHTS);
   const loaded =
-    workspace !== null &&
-    (people.length > 0 || workspace.unscored.length > 0 || workspace.errors.length > 0);
+    workspace !== null && (people.length > 0 || unscored.length > 0 || workspace.errors.length > 0);
 
-  const filtered = rows.filter((row) => {
-    if (band === "all") return true;
-    if (band === "cliff") return row.driving.type === "cliff";
-    return row.status === band;
-  });
+  const rows = useMemo(() => scoreResearchers(people, weights, asOf), [people, weights, asOf]);
+  const baseline = useMemo(() => scoreResearchers(people, DEFAULT_WEIGHTS, asOf), [people, asOf]);
+  const baselineById = useMemo(() => new Map(baseline.map((r) => [r.person.id, r])), [baseline]);
+  const peersById = useMemo(() => {
+    const byOrg = new Map<string, Researcher[]>();
+    for (const p of people) byOrg.set(p.org, [...(byOrg.get(p.org) ?? []), p]);
+    return byOrg;
+  }, [people]);
+  const dirty = !weightsEqual(weights, DEFAULT_WEIGHTS);
 
-  function commit(next: Workspace | null) {
-    writeWorkspace(next);
-  }
+  const orgs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) counts.set(r.person.org, (counts.get(r.person.org) ?? 0) + 1);
+    for (const u of unscored) counts.set(u.employer || "—", (counts.get(u.employer || "—") ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  }, [rows, unscored]);
+  const types = useMemo(() => {
+    const counts = new Map<SignalType, number>();
+    for (const r of rows) counts.set(r.driving.type, (counts.get(r.driving.type) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rows]);
 
-  function onImport(result: ImportResult, source: Workspace["source"], label: string) {
-    const empty = result.people.length === 0 && result.unscored.length === 0 && result.errors.length === 0;
-    if (empty) {
-      commit(null);
+  const passes = (r: ScoredResearcher) =>
+    (statusF.size === 0 || statusF.has(r.status)) &&
+    (orgF.size === 0 || orgF.has(r.person.org)) &&
+    (typeF.size === 0 || typeF.has(r.driving.type));
+  const sorter = (a: ScoredResearcher, b: ScoredResearcher) =>
+    sort === "score"
+      ? a.rank - b.rank
+      : sort === "name"
+        ? (a.person.name < b.person.name ? -1 : a.person.name > b.person.name ? 1 : 0)
+        : nextCliff(a, asOf) - nextCliff(b, asOf) || a.rank - b.rank;
+  const reach = rows.filter((r) => r.status === "reach" && passes(r)).sort(sorter);
+  const near = rows.filter((r) => r.status !== "reach" && passes(r)).sort(sorter);
+  const incomplete = unscored
+    .filter(
+      (u) =>
+        (statusF.size === 0 || statusF.has("incomplete")) &&
+        (orgF.size === 0 || orgF.has(u.employer || "—")) &&
+        typeF.size === 0,
+    )
+    .sort((a, b) => (sort === "name" ? (a.name < b.name ? -1 : 1) : 0));
+
+  const entered = rows.filter((r) => r.status === "reach" && baselineById.get(r.person.id)?.status !== "reach");
+  const left = rows.filter((r) => r.status !== "reach" && baselineById.get(r.person.id)?.status === "reach");
+  const orderSame = rows.every((r) => baselineById.get(r.person.id)?.rank === r.rank);
+
+  function onImport(result: ImportResult, source: Workspace["source"], label: string, ms: number) {
+    setImportMs(ms);
+    if (result.people.length === 0 && result.unscored.length === 0 && result.errors.length === 0) {
+      writeWorkspace(null);
       return;
     }
-    commit({
-      version: 1,
-      source,
-      label,
-      people: result.people,
-      unscored: result.unscored,
-      errors: result.errors,
-      decisions: {},
-    });
-    setView("week");
-    setExportText("");
+    writeWorkspace({ version: 1, source, label, people: result.people, unscored: result.unscored, errors: result.errors, decisions: {} });
+    setLimit({ reach: PAGE, near: PAGE, incomplete: PAGE });
+    setOpenId(null);
   }
-
   function onDecide(id: string, decision: Decision) {
     if (!workspace) return;
-    commit({
+    writeWorkspace({
       ...workspace,
-      decisions: {
-        ...workspace.decisions,
-        [id]: workspace.decisions[id] === decision ? undefined : decision,
-      },
+      decisions: { ...workspace.decisions, [id]: workspace.decisions[id] === decision ? undefined : decision },
     });
   }
-
-  function download(csv: string, filename: string) {
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+  function clearAll() {
+    writeWorkspace(null);
+    writeWeights(null);
+    setOpenId(null);
+    setStatusF(new Set());
+    setOrgF(new Set());
+    setTypeF(new Set());
+  }
+  function toggle<T>(set: Set<T>, value: T, apply: (s: Set<T>) => void) {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    apply(next);
   }
 
-  function onExportRanked() {
-    download(rankedQueueCsv(rows, workspace?.unscored ?? []), "ping-when-ranked-queue.csv");
-  }
-
-  function onExport() {
-    const approved = new Set(
-      Object.entries(decisions)
-        .filter(([, decision]) => decision === "approve")
-        .map(([id]) => id),
-    );
-    const csv = approvedQueueCsv(rows, approved);
-    setExportText(csv);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "ping-when-approved.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  const weekStart = weekOf(asOf);
-  const weekEnd = weekEnding(asOf);
+  const openRow = rows.find((r) => r.person.id === openId);
+  const openUnscored = unscored.find((u) => u.id === openId);
+  const closeDrawer = useCallback(() => setOpenId(null), []);
+  const datasetLine = !loaded ? "" : example ? "EXAMPLE DATA, fictional" : "Real public sources · scores are illustrative";
 
   return (
-    <div className="min-h-full bg-black text-[#ffffffbb]">
-      <header className="gi-hero">
-        <div className="mx-auto max-w-6xl px-4 py-14 md:px-6 md:py-20">
-          <p className="gi-mono gi-subtle text-[13px]">Ping when.</p>
-          <h1 className="gi-h mt-6 max-w-[45ch] text-[40px] text-black">
-            Sourcing is automated. Timing is not.
-          </h1>
-          <p className="mt-6 max-w-[45ch] text-[18px] leading-[1.7] text-black">
-            It decides when to reach out. A person still writes.
+    <div className="min-h-full bg-white">
+      <div className="hair-b">
+        <p className="eyebrow px-4 py-2 text-center" data-testid="announcement">
+          Scored today · nothing is sent · data stays in your browser
+        </p>
+      </div>
+
+      <header className="hair-b">
+        <div className="mx-auto max-w-[1440px] px-4 pt-8 pb-5 text-center md:px-10">
+          <p className="wordmark">PING WHEN</p>
+          <p className="eyebrow mt-3 min-h-4 muted" data-testid="dataset">
+            {hydrated ? datasetLine : ""}
           </p>
+          <nav className="mt-5 flex flex-wrap justify-center gap-x-8 gap-y-2" aria-label="Sections">
+            <a className="eyebrow" href="#new-in">New in</a>
+            <a className="eyebrow" href="#almost">Almost there</a>
+            <a className="eyebrow" href="#incomplete">Incomplete</a>
+            <a className="eyebrow" href="#import">Import</a>
+            <a className="eyebrow" href="#method">Method</a>
+          </nav>
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-        <div className="gi-grid">
-          <div className="gi-split cols-3">
-            <p className="text-[18px] leading-[1.7]">Nothing is sent.</p>
-            <p className="text-[18px] leading-[1.7]">The queue starts empty.</p>
-            <p className="gi-mono text-[13px] leading-6 text-[#888]">
-              Week of {formatDay(weekStart)} through {formatDay(weekEnd)}. Approve, snooze, or
-              dismiss.
-            </p>
-          </div>
-        </div>
+      <section className="mx-auto max-w-[1440px] px-4 py-16 md:px-10 md:py-24">
+        <p className="eyebrow muted">
+          Week of {formatDay(weekOf(asOf))} through {formatDay(weekEnding(asOf))}
+        </p>
+        <h1 className="serif mt-6 max-w-[18ch] text-[44px] leading-[1.05] md:text-[72px]">Sourcing is automated. Timing is not.</h1>
+        <p className="prose-s mt-6 text-[16px]">
+          It decides when to reach out. A person still writes. The queue scores only the roster you import.
+        </p>
+      </section>
 
-        <section className="mt-8 gi-card p-5">
-          <h2 className="gi-h text-[28px] text-white">Limits.</h2>
-          <div className="mt-5 grid gap-px md:grid-cols-2">
-            <p className="gi-prose-sm border-t border-[#4d4d4d] py-4 md:pr-6">
-              The roster is the file you import. The example is 30 fictional archetypes and stays
-              off the queue until you load it.
-            </p>
-            <p className="gi-prose-sm border-t border-[#4d4d4d] py-4 md:pl-6">
-              A cliff is inferred from start_date. A month with no day uses the first of that month.
-              It is not a view of a grant.
-            </p>
-            <p className="gi-prose-sm border-t border-[#4d4d4d] py-4 md:pr-6">
-              A layoff is news about the employer. It is not proof this person was cut. Open the
-              source link before you approve.
-            </p>
-            <p className="gi-prose-sm border-t border-[#4d4d4d] py-4 md:pl-6">
-              The line at 60 predicts a likelier reply, not a hire. Approve records a decision on
-              this machine. It does not send.
-            </p>
-          </div>
-        </section>
-
-        <div className="mt-8">
-          <ImportPanel
-            loaded={loaded}
-            example={example}
-            label={workspace?.label ?? ""}
-            onImport={onImport}
-            onClear={() => {
-              commit(null);
-              setExportText("");
-              setWeights(DEFAULT_WEIGHTS);
-            }}
-          />
-        </div>
-
-        {loaded && workspace && (
-          <Issues workspace={workspace} />
+      <div className="mx-auto max-w-[1440px] px-4 pb-16 md:px-10">
+        <ImportPanel loaded={loaded} example={example} label={workspace?.label ?? ""} onImport={onImport} onClear={clearAll} />
+        {importMs !== null && (
+          <p className="mt-4 text-[12px] muted tnum" data-testid="import-ms">
+            Parsed in {Math.round(importMs)} ms.
+          </p>
         )}
 
-        {!loaded && (
-          <div className="gi-grid mt-8 p-5" data-empty="true">
-            <h2 className="gi-h text-[32px] text-white">The queue is empty.</h2>
-            <p className="gi-prose mt-4">Nothing is scored until you bring a roster. Three steps:</p>
-            <ol className="gi-prose mt-4 list-decimal space-y-2 pl-6" data-testid="how-to">
-              <li>
-                Choose or drop a CSV/JSON file above, or paste rows. Only a name column is required;
-                Download template shows every column.
-              </li>
-              <li>
-                Each person with a start_date gets a score. People without one are listed as
-                unscored (needs start date). Dates are never guessed.
-              </li>
-              <li>
-                Read This week and Closest to the line, drag the weights to see the queue re-order,
-                then Export ranked queue to CSV. Your roster and weights stay in this browser only.
-              </li>
+        {loaded && workspace && workspace.errors.length > 0 && (
+          <section className="mt-12">
+            <h2 className="h-section">Import errors.</h2>
+            <p className="prose-s mt-3 muted">
+              Only the faulty row or signal noted was skipped. A person listed here can still be scored from start_date or other valid signals.
+            </p>
+            <dl className="spec mt-4">
+              {workspace.errors.map((e) => (
+                <Err key={`${e.row}-${e.message}`} row={e.row} message={e.message} />
+              ))}
+            </dl>
+          </section>
+        )}
+
+        {hydrated && !loaded && (
+          <section className="mt-16 hair-t pt-12" data-empty="true">
+            <h2 className="h-section">The queue is empty.</h2>
+            <p className="prose-s mt-4">Nothing is scored until you bring a roster. Three steps:</p>
+            <ol className="prose-s mt-4 list-decimal space-y-2 pl-5" data-testid="how-to">
+              <li>Choose or drop a CSV or JSON file, or paste rows. Only a name column is required; Download template shows every column.</li>
+              <li>Each person with a start_date gets a score. People without one are listed as incomplete (needs start date). Dates are never guessed.</li>
+              <li>Read New in and Almost there, open Refine to drag the weights and watch the order change, then Export ranked queue to CSV.</li>
             </ol>
-            <p className="gi-prose-sm mt-4">
-              Want to see it first? Load example uses 30 fictional seed archetypes, labelled as such.
-            </p>
-          </div>
+            <p className="prose-s mt-4 muted">Want to see it first? Load example uses 30 fictional seed archetypes, labelled as such.</p>
+          </section>
         )}
 
-        {loaded && people.length === 0 && (
-          <div className="gi-grid mt-8 p-5">
-            <p className="gi-prose-sm">No scored candidates yet. The people above stay listed as unscored — a candidate needs a valid start_date to score, and any signal needs a valid date. Add a start_date and import the file again to score them.</p>
-          </div>
-        )}
-
-        {loaded && people.length > 0 && (
-          <div className="mt-8 grid items-start gap-8 lg:grid-cols-[20rem_minmax(0,1fr)]">
-            <div className="lg:sticky lg:top-4">
-              <WeightPanel weights={weights} onChange={setWeights} />
+        {loaded && (
+          <div className="mt-16 hair-t pt-10 md:flex md:gap-12">
+            <div className="md:hidden">
+              <button type="button" className="tlink" aria-expanded={refineOpen} onClick={() => setRefineOpen(!refineOpen)}>
+                {refineOpen ? "Hide refine and filters" : "Refine and filter"}
+              </button>
             </div>
-            <div className="min-w-0">
-              <div className="mb-4 flex flex-wrap gap-2">
-                <button type="button" className="gi-btn" onClick={onExportRanked} data-testid="export-ranked">
-                  Export ranked queue (CSV)
-                </button>
-                <button type="button" className="gi-btn" onClick={onExport}>
-                  Export approved
-                </button>
-                {dirty && (
-                  <button type="button" className="gi-btn" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
-                    Reset weights
-                  </button>
-                )}
-              </div>
-              {exportText && (
-                <pre
-                  className="gi-mono mb-6 overflow-x-auto border border-[#fff] p-5 text-[12px] leading-6 text-[#ffffffbb]"
-                  data-export="true"
-                >
-                  {exportText}
-                </pre>
-              )}
-              <div className="gi-grid mb-6">
-                <div className="gi-split cols-3">
+            <aside className={`side${refineOpen ? " open mt-6" : ""}`} aria-label="Refine and filter">
+              {people.length > 0 && <WeightPanel weights={weights} onChange={setWeights} />}
+              <div className="mt-10">
+                <h3>Status</h3>
+                <div className="mt-3">
                   {(
                     [
-                      ["week", "This week"],
-                      ["rank", "All scored"],
-                      ["next", "Automate next"],
+                      ["reach", "Ready to reach", rows.filter((r) => r.status === "reach").length],
+                      ["warm", "Warm up", rows.filter((r) => r.status === "warm").length],
+                      ["wait", "Wait", rows.filter((r) => r.status === "wait").length],
+                      ["incomplete", "Incomplete", unscored.length],
                     ] as const
-                  ).map(([id, text]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className="bg-black text-left text-[16px] leading-[1.25]"
-                      aria-pressed={view === id}
-                      onClick={() => setView(id)}
-                    >
-                      <span className={view === id ? "text-white" : "text-[#888]"}>{text}.</span>
-                      {id === "week" && (
-                        <span className="gi-mono mt-2 block text-[12px] text-[#888]">{queue.length}</span>
-                      )}
-                    </button>
+                  ).map(([id, text, n]) => (
+                    <label key={id} className="check">
+                      <input type="checkbox" checked={statusF.has(id)} onChange={() => toggle(statusF, id, setStatusF)} />
+                      <span className="flex-1">{text}</span>
+                      <span className="muted tnum">{n}</span>
+                    </label>
                   ))}
                 </div>
               </div>
-
-              {view === "week" && (
-                <WeekView
-                  dirty={dirty}
-                  queue={queue}
-                  bubble={bubble}
-                  rows={rows}
-                  baselineById={baselineById}
-                  example={example}
-                  weights={weights}
-                  peersById={peersById}
-                  decisions={decisions}
-                  onDecide={onDecide}
-                  markSeed={example}
-                />
-              )}
-
-              {view === "rank" && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        ["all", "All", rows.length],
-                        ["reach", "This week", rows.filter((row) => row.status === "reach").length],
-                        ["warm", "Warm up", rows.filter((row) => row.status === "warm").length],
-                        ["wait", "Wait", rows.filter((row) => row.status === "wait").length],
-                        ["cliff", "Cliff-driven", rows.filter((row) => row.driving.type === "cliff").length],
-                      ] as const
-                    ).map(([id, text, count]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className="gi-btn"
-                        aria-pressed={band === id}
-                        onClick={() => setBand(id)}
-                      >
-                        {text} {count}
-                      </button>
-                    ))}
-                  </div>
-                  <QueueTable
-                    rows={filtered}
-                    baselineById={baselineById}
-                    weights={weights}
-                    peersById={peersById}
-                    decisions={decisions}
-                    onDecide={onDecide}
-                    showActions
-                    markSeed={example}
-                  />
-                </div>
-              )}
-
-              {view === "next" && <AutomationPanel />}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <footer className="border-t border-[#4d4d4d]">
-        <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-          <p className="max-w-[45ch] text-[16px] leading-[1.7] text-[#888]">
-            Ping when is an interview case. It is not a General Intuition product, and it is not
-            affiliated with General Intuition.
-          </p>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function Issues({ workspace }: { workspace: Workspace }) {
-  if (workspace.errors.length === 0 && workspace.unscored.length === 0) return null;
-  return (
-    <div className="mt-8 space-y-8">
-      {workspace.errors.length > 0 && (
-        <section>
-          <h2 className="gi-h text-[28px] text-white">Import errors.</h2>
-          <p className="gi-prose-sm mt-3">These rows had a problem. Only the faulty row or signal noted was dropped or skipped — a candidate listed here can still appear in the scored queue from start_date (cliff) or other valid signals.</p>
-          <div className="gi-grid mt-4">
-            {workspace.errors.map((error) => (
-              <p key={`${error.row}-${error.message}`} className="gi-block p-5 text-[16px] leading-[1.7]">
-                <span className="gi-mono text-[12px] text-[#888]">Row {error.row}. </span>
-                {error.message}
-              </p>
-            ))}
-          </div>
-        </section>
-      )}
-      {workspace.unscored.length > 0 && (
-        <section>
-          <h2 className="gi-h text-[28px] text-white">Unscored.</h2>
-          <div className="gi-grid mt-4 overflow-x-auto">
-            <div className="gi-signal gi-row-head gi-mono text-[12px] text-[#888]">
-              <div>Rows</div>
-              <div>Person</div>
-              <div>Flag</div>
-              <div>What is missing</div>
-            </div>
-            {workspace.unscored.map((person) => (
-              <div key={person.id} className="gi-block" data-unscored={person.name}>
-                <div className="gi-signal">
-                  <div className="gi-mono text-[12px]">{person.rows.join(", ")}</div>
-                  <div>
-                    <p className="text-[18px] leading-[1.25] text-white">{person.name}</p>
-                    <p className="gi-mono mt-2 text-[12px] text-[#888]">
-                      {person.role} · {person.employer}
-                    </p>
-                  </div>
-                  <div className="gi-mono text-[12px] leading-5 text-white">{person.reason}</div>
-                  <div className="text-[16px] leading-[1.7]">{person.missing}</div>
+              <div className="mt-8">
+                <h3>Employer</h3>
+                <div className="mt-3 max-h-64 overflow-y-auto">
+                  {orgs.map(([org, n]) => (
+                    <label key={org} className="check">
+                      <input type="checkbox" checked={orgF.has(org)} onChange={() => toggle(orgF, org, setOrgF)} />
+                      <span className="min-w-0 flex-1 truncate">{org}</span>
+                      <span className="muted tnum">{n}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
-            ))}
+              {types.length > 0 && (
+                <div className="mt-8">
+                  <h3>Driving signal</h3>
+                  <div className="mt-3">
+                    {types.map(([t, n]) => (
+                      <label key={t} className="check">
+                        <input type="checkbox" checked={typeF.has(t)} onChange={() => toggle(typeF, t, setTypeF)} />
+                        <span className="flex-1">{SIGNAL_GUIDE[t].label}</span>
+                        <span className="muted tnum">{n}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(statusF.size > 0 || orgF.size > 0 || typeF.size > 0) && (
+                <button type="button" className="tlink mt-6" onClick={() => { setStatusF(new Set()); setOrgF(new Set()); setTypeF(new Set()); }}>
+                  Clear filters
+                </button>
+              )}
+            </aside>
+
+            <main className="mt-8 min-w-0 flex-1 md:mt-0">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-[13px] muted tnum" data-testid="summary">
+                  {people.length} scored · {unscored.length} incomplete{workspace && workspace.errors.length > 0 ? ` · ${workspace.errors.length} import errors` : ""}
+                </p>
+                <label className="flex items-center gap-3">
+                  <span className="eyebrow muted">Sort by</span>
+                  <select className="select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort by">
+                    <option value="score">Score</option>
+                    <option value="cliff">Cliff date</option>
+                    <option value="name">Name</option>
+                  </select>
+                </label>
+              </div>
+              {people.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
+                  <button type="button" className="tlink" data-testid="export-ranked" onClick={() => download(rankedQueueCsv(rows, unscored), "ping-when-ranked-queue.csv")}>
+                    Export ranked queue (CSV)
+                  </button>
+                  <button
+                    type="button"
+                    className="tlink"
+                    onClick={() =>
+                      download(
+                        approvedQueueCsv(rows, new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id))),
+                        "ping-when-approved.csv",
+                      )
+                    }
+                  >
+                    Export approved
+                  </button>
+                  {dirty && (
+                    <button type="button" className="tlink" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
+                      Reset weights
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {people.length > 0 && (
+                <div className="mt-6 text-[13px] leading-6" aria-live="polite">
+                  {!dirty && <p className="muted">Balanced weights, 30 cliff, 40 proof, 30 shift. Drag cliff proximity and the order changes.</p>}
+                  {dirty && entered.length > 0 && (
+                    <p>
+                      Entered ready to reach:{" "}
+                      {entered
+                        .map((r) => `${r.person.name} (${drivingLabel(r.driving).toLowerCase()}, was ${baselineById.get(r.person.id)?.rank ?? "—"}, now ${r.rank})`)
+                        .join("; ")}
+                      .
+                    </p>
+                  )}
+                  {dirty && left.length > 0 && <p>Left ready to reach: {left.map((r) => r.person.name).join(", ")}. Their scores fell because this is an average.</p>}
+                  {dirty && entered.length === 0 && left.length === 0 && orderSame && (
+                    <p data-testid="order-unchanged">
+                      Scores moved, but the order did not. No one here has a stronger cliff signal than their other signals, so this weight cannot re-rank them. Nothing is invented to make it move.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {people.length > 0 && (
+                <Section id="new-in" testid="this-week" title="New in: ready to reach" count={reach.length} empty="No one clears the line at these weights.">
+                  {reach.slice(0, limit.reach).map((r) => (
+                    <ProductCard key={r.person.id} row={r} before={baselineById.get(r.person.id)} decision={decisions[r.person.id]} markSeed={example}
+                      onOpen={() => setOpenId(r.person.id)} onSave={() => onDecide(r.person.id, "approve")} />
+                  ))}
+                  <More shown={limit.reach} total={reach.length} onMore={() => setLimit({ ...limit, reach: limit.reach + PAGE })} />
+                </Section>
+              )}
+              {people.length > 0 && (
+                <Section id="almost" testid="closest" title="Almost there" count={near.length} sub="Highest scores that are not ready this week." empty="No one here with these filters.">
+                  {near.slice(0, limit.near).map((r) => (
+                    <ProductCard key={r.person.id} row={r} before={baselineById.get(r.person.id)} decision={decisions[r.person.id]} markSeed={example}
+                      onOpen={() => setOpenId(r.person.id)} onSave={() => onDecide(r.person.id, "approve")} />
+                  ))}
+                  <More shown={limit.near} total={near.length} onMore={() => setLimit({ ...limit, near: limit.near + PAGE })} />
+                </Section>
+              )}
+              {people.length === 0 && (
+                <p className="prose-s mt-10">No scored people yet. Everyone below needs a valid start_date. Add one and import the file again.</p>
+              )}
+              {unscored.length > 0 && (
+                <Section id="incomplete" testid="incomplete" title="Incomplete" count={incomplete.length} sub="Needs start date. Listed, never scored, never guessed." empty="No one here with these filters.">
+                  {incomplete.slice(0, limit.incomplete).map((u) => (
+                    <IncompleteCard key={u.id} person={u} onOpen={() => setOpenId(u.id)} />
+                  ))}
+                  <More shown={limit.incomplete} total={incomplete.length} onMore={() => setLimit({ ...limit, incomplete: limit.incomplete + PAGE })} />
+                </Section>
+              )}
+            </main>
+          </div>
+        )}
+
+        <section id="method" className="mt-24 hair-t pt-12">
+          <h2 className="h-section">Limits.</h2>
+          <div className="mt-6 grid gap-x-12 gap-y-4 md:grid-cols-2">
+            <p className="prose-s">The roster is the file you import. The example is 30 fictional archetypes and stays off the queue until you load it.</p>
+            <p className="prose-s">A cliff is inferred from start_date. A month with no day uses the first of that month. It is not a view of a grant.</p>
+            <p className="prose-s">A layoff is news about the employer. It is not proof this person was cut. Open the source link before you approve.</p>
+            <p className="prose-s">The line at 60 predicts a likelier reply, not a hire. Approve records a decision on this machine. It does not send.</p>
+          </div>
+          <div className="mt-16">
+            <AutomationPanel />
           </div>
         </section>
+      </div>
+
+      <footer className="hair-t">
+        <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-10">
+          <p className="text-[12px] muted">Ping when is an interview case. It is not a General Intuition product, and it is not affiliated with General Intuition.</p>
+        </div>
+      </footer>
+
+      {openRow && (
+        <DetailDrawer
+          row={openRow}
+          before={baselineById.get(openRow.person.id)}
+          weights={weights}
+          peers={example ? (peersById.get(openRow.person.org) ?? []).filter((p) => p.id !== openRow.person.id) : []}
+          decision={decisions[openRow.person.id]}
+          onDecide={(d) => onDecide(openRow.person.id, d)}
+          onClose={closeDrawer}
+          markSeed={example}
+        />
       )}
+      {openUnscored && <IncompleteDrawer person={openUnscored} onClose={closeDrawer} />}
     </div>
   );
 }
 
-function WeekView({
-  dirty,
-  queue,
-  bubble,
-  rows,
-  baselineById,
-  example,
-  weights,
-  peersById,
-  decisions,
-  onDecide,
-  markSeed,
-}: {
-  dirty: boolean;
-  queue: ScoredResearcher[];
-  bubble: ScoredResearcher[];
-  rows: ScoredResearcher[];
-  baselineById: Map<string, ScoredResearcher>;
-  example: boolean;
-  weights: Weights;
-  peersById: Map<string, Researcher[]>;
-  decisions: Record<string, Decision | undefined>;
-  onDecide: (id: string, decision: Decision) => void;
-  markSeed: boolean;
-}) {
-  const entered = rows.filter((row) => {
-    const before = baselineById.get(row.person.id);
-    return row.status === "reach" && before?.status !== "reach";
-  });
-  const left = rows.filter((row) => {
-    const before = baselineById.get(row.person.id);
-    return row.status !== "reach" && before?.status === "reach";
-  });
-  const idris = example ? rows.find((row) => row.person.name === "Idris Pell") : undefined;
-
+function Err({ row, message }: { row: number; message: string }) {
   return (
-    <div className="space-y-8">
-      <div aria-live="polite">
-        <h2 className="gi-h text-[32px] text-white">This week.</h2>
-        <p className="gi-prose-sm mt-3">
-          Ranked from the imported file. Approve, snooze, or dismiss. A person writes the note.
-        </p>
-        {idris && (
-          <p className="gi-mono mt-4 text-[13px] leading-6 text-white">
-            Idris Pell. Rank {idris.rank}. {STATUS_LABEL[idris.status]}. Score {idris.score}.{" "}
-            {drivingLabel(idris.driving)}.
-          </p>
-        )}
-        {!dirty && (
-          <p className="gi-prose-sm mt-3">
-            Balanced weights, 30 cliff, 40 proof, 30 shift. Drag cliff proximity and this list
-            re-sorts.
-          </p>
-        )}
-        {dirty && (
-          <div className="mt-4 space-y-2 text-[16px] leading-[1.7]">
-            {entered.length > 0 && (
-              <p>
-                Entered the queue.{" "}
-                {entered
-                  .map((row) => {
-                    const before = baselineById.get(row.person.id);
-                    return `${row.person.name} (${drivingLabel(row.driving).toLowerCase()}, was ${before?.rank ?? "—"}, now ${row.rank})`;
-                  })
-                  .join("; ")}
-                .
-              </p>
-            )}
-            {entered.length === 0 &&
-              left.length === 0 &&
-              rows.every((row) => baselineById.get(row.person.id)?.rank === row.rank) && (
-                <p data-testid="order-unchanged">
-                  Scores moved, but the order did not. No one here has a stronger cliff signal than
-                  their other signals, so this weight cannot re-rank them. Nothing is invented to
-                  make it move.
-                </p>
-              )}
-            {left.length > 0 && (
-              <p>
-                Left the queue. {left.map((row) => row.person.name).join(", ")}. Their scores fell
-                because this is an average.
-              </p>
-            )}
-          </div>
-        )}
+    <>
+      <dt>Row {row}</dt>
+      <dd>{message}</dd>
+    </>
+  );
+}
+
+function Section({ id, testid, title, count, sub, empty, children }: { id: string; testid: string; title: string; count: number; sub?: string; empty: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="mt-14" data-testid={testid}>
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="h-section">{title}</h2>
+        <span className="text-[13px] muted tnum">{count}</span>
       </div>
-      <div data-testid="this-week">
-      <QueueTable
-        rows={queue}
-        baselineById={baselineById}
-        weights={weights}
-        peersById={peersById}
-        decisions={decisions}
-        onDecide={onDecide}
-        showActions
-        markSeed={markSeed}
-      />
-      </div>
-      <div data-testid="closest">
-        <h2 className="gi-h text-[28px] text-white">Closest to the line.</h2>
-        <p className="gi-prose-sm mt-3">Highest scores that are not this week.</p>
-        <div className="mt-4">
-          <QueueTable
-            rows={bubble}
-            baselineById={baselineById}
-            weights={weights}
-            peersById={peersById}
-            decisions={decisions}
-            onDecide={onDecide}
-            showActions={false}
-            markSeed={markSeed}
-          />
-        </div>
-      </div>
+      {sub && <p className="mt-2 text-[13px] muted">{sub}</p>}
+      {count === 0 ? <p className="prose-s mt-6 muted">{empty}</p> : <div className="pgrid mt-8">{children}</div>}
+    </section>
+  );
+}
+
+function More({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  if (shown >= total) return null;
+  return (
+    <div className="col-span-full text-center">
+      <button type="button" className="tlink" onClick={onMore}>
+        Show more ({total - shown})
+      </button>
     </div>
   );
 }

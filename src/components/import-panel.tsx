@@ -13,7 +13,7 @@ export function ImportPanel({
   loaded: boolean;
   example: boolean;
   label: string;
-  onImport: (result: ImportResult, source: "file" | "paste" | "example", label: string) => void;
+  onImport: (result: ImportResult, source: "file" | "paste" | "example", label: string, ms: number) => void;
   onClear: () => void;
 }) {
   const [paste, setPaste] = useState("");
@@ -21,7 +21,9 @@ export function ImportPanel({
   const [notice, setNotice] = useState("");
 
   function take(text: string, filename: string, source: "file" | "paste") {
-    onImport(parseImport(text, filename), source, filename);
+    const t0 = performance.now();
+    const result = parseImport(text, filename);
+    onImport(result, source, filename, performance.now() - t0);
     setNotice("");
   }
 
@@ -32,111 +34,105 @@ export function ImportPanel({
       return;
     }
     const text = await response.text();
-    onImport(parseImport(text, "ping-when-example.csv"), "example", "Example. 30 fictional seed archetypes.");
+    const t0 = performance.now();
+    const result = parseImport(text, "ping-when-example.csv");
+    onImport(result, "example", "Example. 30 fictional seed archetypes.", performance.now() - t0);
     setNotice("");
   }
 
   return (
-    <section className="gi-card">
-      <div className="border-b border-[#4d4d4d] p-5">
-        <h2 className="gi-h text-[28px] text-white">Bring a file.</h2>
-        <p className="gi-prose-sm mt-3">
-          CSV or JSON — comma, semicolon, or tab-separated paste from Sheets/Excel works too.
-          Only name is required: a name column (name, Candidate Name, Full Name) is enough to
-          list someone; role (Title) and employer (Company) can be blank. start_date (Start
-          Date, Date Started) as YYYY-MM (or YYYY-MM-DD with a day) is what scores them —
-          without it they stay listed as unscored. Signals are optional, one per row: add type,
-          date, source_url, note only when you have a signal. A candidate with no signal still
-          scores from start_date (cliff). The queue scores only what you import.
-        </p>
-      </div>
-
+    <section id="import" className="grid gap-10 md:grid-cols-2">
       <div
-        className="border-b border-[#4d4d4d] p-5"
-        onDragEnter={(event) => {
-          event.preventDefault();
+        onDragEnter={(e) => {
+          e.preventDefault();
           setDragging(true);
         }}
-        onDragOver={(event) => {
-          event.preventDefault();
+        onDragOver={(e) => {
+          e.preventDefault();
           setDragging(true);
         }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault();
+        onDrop={(e) => {
+          e.preventDefault();
           setDragging(false);
-          const file = event.dataTransfer.files[0];
-          if (!file) return;
-          void file.text().then((text) => take(text, file.name, "file"));
+          const file = e.dataTransfer.files[0];
+          if (file) void file.text().then((text) => take(text, file.name, "file"));
         }}
         data-dragging={dragging ? "true" : "false"}
       >
-        <p className="text-[16px] leading-[1.7]">
-          {dragging ? "Drop the file." : "Drop a CSV or JSON file here, or choose one."}
+        <h2 className="h-section">Bring a roster.</h2>
+        <p className="prose-s mt-4">
+          CSV or JSON, or a comma, semicolon or tab-separated paste from Sheets or Excel. Only a name column is
+          required. start_date (YYYY-MM or YYYY-MM-DD) is what scores a person; without it they are listed as
+          incomplete. Signals are optional, one per row: type, date, source_url, note.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <label className="gi-btn cursor-pointer">
+        <p className="mt-4 text-[13px] muted">{dragging ? "Drop the file." : "Drop a CSV or JSON file anywhere here, or choose one."}</p>
+        <div className="mt-6 flex flex-wrap gap-x-6 gap-y-4">
+          <label className="tlink cursor-pointer">
             Choose file
             <input
               className="hidden"
               type="file"
-              accept=".csv,.json,text/csv,application/json"
+              accept=".csv,.tsv,.json,text/csv,application/json"
               aria-label="Choose CSV or JSON file"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                void file.text().then((text) => take(text, file.name, "file"));
-                event.target.value = "";
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void file.text().then((text) => take(text, file.name, "file"));
+                e.target.value = "";
               }}
             />
           </label>
-          <a className="gi-btn" href="/ping-when-template.csv" download="ping-when-template.csv">
+          <a className="tlink" href="/ping-when-template.csv" download="ping-when-template.csv">
             Download template
           </a>
-          <a className="gi-btn" href="/ping-when-example.csv" download="ping-when-example.csv">
+          <a className="tlink" href="/ping-when-example.csv" download="ping-when-example.csv">
             Download example
           </a>
-          <button type="button" className="gi-btn" onClick={() => void loadExample()}>
+          <button type="button" className="tlink" onClick={() => void loadExample()}>
             Load example
           </button>
-          {loaded && (
-            <button type="button" className="gi-btn" onClick={onClear}>
-              Clear
-            </button>
-          )}
         </div>
-        <p className="gi-mono mt-4 text-[12px] leading-5 text-[#888]">
-          Example. 30 fictional seed archetypes. Load it on purpose. Clear it before a real list.
-        </p>
+        <p className="mt-4 text-[12px] muted">Example. 30 fictional seed archetypes. Load it on purpose. Clear it before a real list.</p>
       </div>
 
-      <div className="p-5">
-        <label className="text-[16px] leading-[1.25] text-white" htmlFor="paste-roster">
-          Or paste CSV or JSON.
+      <div>
+        <label className="eyebrow font-semibold" htmlFor="paste-roster">
+          Or paste CSV or JSON
         </label>
         <textarea
           id="paste-roster"
-          className="gi-mono mt-3 min-h-28 w-full border border-[#4d4d4d] bg-black p-3 text-[13px] leading-6 text-[#ffffffbb] outline-none"
+          className="field mt-3 min-h-32"
           value={paste}
           spellCheck={false}
-          onChange={(event) => setPaste(event.target.value)}
+          onChange={(e) => setPaste(e.target.value)}
         />
-        <button
-          type="button"
-          className="gi-btn mt-3"
-          onClick={() => {
-            take(paste, "pasted.csv", "paste");
-            setPaste("");
-          }}
-        >
-          Import paste
-        </button>
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-4">
+          <button
+            type="button"
+            className="tlink"
+            onClick={() => {
+              take(paste, "pasted.csv", "paste");
+              setPaste("");
+            }}
+          >
+            Import paste
+          </button>
+          {loaded && (
+            <button type="button" className="tlink" onClick={onClear} data-testid="clear-data">
+              Clear my data
+            </button>
+          )}
+        </div>
+        <p className="mt-4 text-[12px] muted" data-testid="storage-note">
+          Your roster, weights and decisions are stored only in this browser (localStorage). Nothing is uploaded or sent.
+          Clear my data removes them.
+        </p>
         {loaded && (
-          <p className="gi-mono mt-4 text-[12px] leading-5 text-[#888]" data-loaded={example ? "example" : "roster"}>
-            {example ? "Example. 30 fictional seed archetypes." : label}
+          <p className="mt-2 text-[12px] muted" data-loaded={example ? "example" : "roster"}>
+            Loaded: {example ? "Example. 30 fictional seed archetypes." : label}
           </p>
         )}
-        {notice && <p className="mt-3 text-[16px] leading-[1.7]">{notice}</p>}
+        {notice && <p className="mt-3 text-[13px]">{notice}</p>}
       </div>
     </section>
   );

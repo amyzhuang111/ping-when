@@ -29,18 +29,18 @@ function Slider({
       <SliderPrimitive.Control className="relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col">
         <SliderPrimitive.Track
           data-slot="slider-track"
-          className="relative grow overflow-hidden rounded-none bg-[#4d4d4d] select-none data-horizontal:h-0.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-0.5"
+          className="relative grow overflow-hidden rounded-none bg-[#e8e8e8] select-none data-horizontal:h-px data-horizontal:w-full data-vertical:h-full data-vertical:w-0.5"
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
-            className="bg-white select-none data-horizontal:h-full data-vertical:w-full"
+            className="bg-[#0a0a0a] select-none data-horizontal:h-full data-vertical:w-full"
           />
         </SliderPrimitive.Track>
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
-            className="relative block size-3.5 shrink-0 rounded-none border border-white bg-white shadow-none select-none after:absolute after:-inset-3 focus-visible:outline-1 focus-visible:outline-white disabled:pointer-events-none disabled:opacity-50"
+            className="relative block size-2.5 shrink-0 rounded-none border border-[#0a0a0a] bg-[#0a0a0a] shadow-none select-none after:absolute after:-inset-3 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[#0a0a0a] disabled:pointer-events-none disabled:opacity-50"
           />
         ))}
       </SliderPrimitive.Control>

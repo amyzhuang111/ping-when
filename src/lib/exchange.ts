@@ -36,32 +36,109 @@ function resolveSignalType(raw: string): ObservedSignalType | undefined {
   return SIGNAL_TYPE_ALIASES[key];
 }
 
-/** Only these four columns are required; signal columns are optional. */
-const REQUIRED = ["name", "role", "employer", "start_date"] as const;
+/** Only name is truly required; role/employer may be blank and a missing
+ *  or invalid start_date leaves the candidate listed but unscored. */
+const REQUIRED = ["name"] as const;
 
-/** Header aliases, keyed by the header stripped of spaces/hyphens/underscores and lower-cased. */
-const HEADER_ALIASES: Record<string, string> = {
-  name: "name",
-  role: "role",
-  employer: "employer",
-  company: "employer",
-  startdate: "start_date",
-  start: "start_date",
-  type: "type",
-  date: "date",
-  sourceurl: "source_url",
-  note: "note",
-  strength: "strength",
-  kind: "kind",
-  endson: "ends_on",
-  id: "id",
-  archetype: "archetype",
-  workhook: "work_hook",
-};
+/** Normalised header: BOM stripped, lower-cased, punctuation becomes spaces. */
+function normalizeHeader(cell: string): string {
+  return cell
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
 
-function canonicalHeader(cell: string): string {
-  const key = cell.trim().toLowerCase().replace(/[\s_-]+/g, "");
-  return HEADER_ALIASES[key] ?? key;
+interface HeaderCandidate {
+  canonical: string;
+  priority: number;
+}
+
+/**
+ * Fuzzy header candidates for one cell, highest priority first.
+ * Exact/template headers score highest so they keep working unchanged;
+ * start-ish matches outrank a bare signal "date" so a signal-date column
+ * is never taken for start_date (and vice versa for "date started").
+ */
+function headerCandidates(cell: string): HeaderCandidate[] {
+  const norm = normalizeHeader(cell);
+  if (!norm) return [];
+  const compact = norm.replace(/ /g, "");
+  const tokens = new Set(norm.split(" "));
+  const found = new Map<string, number>();
+  const add = (canonical: string, priority: number) => {
+    if ((found.get(canonical) ?? -1) < priority) found.set(canonical, priority);
+  };
+
+  // name: exact name/candidate/person, or any header containing "name"
+  if (compact === "name" || compact === "candidate" || compact === "person") add("name", 100);
+  if (tokens.has("candidate") || tokens.has("person")) add("name", 85);
+  if (compact.includes("name")) add("name", 80);
+
+  // role: role/title/position/job/function
+  if (compact === "role") add("role", 100);
+  if (["role", "title", "position", "job", "function"].some((word) => compact.includes(word))) add("role", 80);
+
+  // employer: employer/company/organisation/organization/org/firm
+  if (compact === "employer" || compact === "company") add("employer", 100);
+  if (
+    ["employer", "company", "organisation", "organization", "firm"].some((word) => compact.includes(word)) ||
+    tokens.has("org")
+  )
+    add("employer", 80);
+
+  // start_date: start/joined/tenure/since/hired/hire (incl. "date started")
+  if (compact === "startdate") add("start_date", 100);
+  if (norm === "start date" || norm === "date started") add("start_date", 95);
+  if (
+    ["start", "started", "joined", "tenure", "since", "hired", "hire"].some(
+      (word) => tokens.has(word) || compact.includes(word),
+    )
+  )
+    add("start_date", 85);
+
+  // ends_on must beat a generic "date" reading of "end date"
+  if (compact === "endson") add("ends_on", 100);
+  if (norm === "ends on" || norm === "end date") add("ends_on", 92);
+
+  // signal type: type, or bare signal/event, or signal/event type
+  if (compact === "type") add("type", 100);
+  if ((tokens.has("signal") || tokens.has("event")) && tokens.has("type")) add("type", 90);
+  if (norm === "signal" || norm === "event") add("type", 85);
+
+  // signal date: bare date, or signal/event date; never from a start-ish header
+  if (compact === "date") add("date", 90);
+  if ((tokens.has("signal") || tokens.has("event")) && tokens.has("date")) add("date", 88);
+  if (compact.includes("date")) add("date", 70);
+
+  // source_url: source_url/source url, or any url/link header
+  if (compact === "sourceurl" || norm === "source url") add("source_url", 100);
+  if (compact.includes("url") || compact.includes("link")) add("source_url", 85);
+
+  // note: note/notes, or details/comment
+  if (compact === "note" || compact === "notes") add("note", 100);
+  if (["note", "details", "comment"].some((word) => compact.includes(word))) add("note", 80);
+
+  // remaining exact template/extra columns
+  if (compact === "strength") add("strength", 100);
+  if (compact === "kind") add("kind", 100);
+  if (compact === "id") add("id", 100);
+  if ((tokens.has("candidate") || tokens.has("person")) && tokens.has("id")) add("id", 90);
+  if (compact === "archetype") add("archetype", 100);
+  if (compact === "workhook" || norm === "work hook") add("work_hook", 100);
+
+  // Tie-break: more specific columns win over a generic "name"/"date" reading
+  // (e.g. "Company Name" is the employer, "Candidate ID" is the id).
+  const tieBreak = ["start_date", "ends_on", "id", "source_url", "employer", "role", "type", "date", "note", "name"];
+  return [...found.entries()]
+    .map(([canonical, priority]) => ({ canonical, priority }))
+    .sort(
+      (a, b) =>
+        b.priority - a.priority ||
+        tieBreak.indexOf(a.canonical) - tieBreak.indexOf(b.canonical),
+    );
 }
 
 export interface ImportError {
@@ -276,13 +353,14 @@ function parseCsvDocument(text: string): ImportResult {
   const columns = indexHeader(header.cells);
   const missing = REQUIRED.filter((name) => columns[name] === undefined);
   if (missing.length > 0) {
+    const saw = header.cells.map((cell) => cell.trim()).filter(Boolean).join(", ") || "(no headers)";
     return {
       people: [],
       unscored: [],
       errors: [
         {
           row: header.line,
-          message: `Header is missing ${missing.join(", ")}. Only four columns are required: name, role, employer, start_date. Signal columns (type, date, source_url, note) are optional. Full template: ${TEMPLATE_HEADER}.`,
+          message: `Header is missing ${missing.join(", ")}. Saw: ${saw}. Only name is required: a name column is enough to list someone; role and employer can be blank, and start_date (YYYY-MM or YYYY-MM-DD) is what scores them \u2014 without it they stay unscored. Signal columns (type, date, source_url, note) are optional. Full template: ${TEMPLATE_HEADER}.`,
         },
       ],
     };
@@ -299,10 +377,11 @@ function parseCsvDocument(text: string): ImportResult {
   const order: string[] = [];
   for (const record of table.slice(1)) {
     const cells = record.cells;
-    if (cells.length < REQUIRED.length) {
+    const minColumns = Math.min(4, header.cells.length);
+    if (cells.length < minColumns) {
       errors.push({
         row: record.line,
-        message: `Expected at least ${REQUIRED.length} columns, received ${cells.length}.`,
+        message: `Expected at least ${minColumns} columns, received ${cells.length}.`,
       });
       continue;
     }
@@ -544,12 +623,42 @@ function finish(drafts: DraftPerson[], errors: ImportError[]): ImportResult {
 }
 
 function indexHeader(cells: string[]): Record<string, number> {
+  // Assign highest-priority matches first so exact and start-ish headers
+  // claim their column before a fuzzy/bare-date reading of another cell can.
+  const candidates = cells.flatMap((cell, i) =>
+    headerCandidates(cell).map((candidate) => ({ ...candidate, cell: i })),
+  );
+  candidates.sort((a, b) => b.priority - a.priority || a.cell - b.cell);
   const index: Record<string, number> = {};
-  cells.forEach((cell, i) => {
-    const canonical = canonicalHeader(cell);
-    if (canonical && index[canonical] === undefined) index[canonical] = i;
-  });
+  const used = new Set<number>();
+  for (const candidate of candidates) {
+    if (used.has(candidate.cell) || index[candidate.canonical] !== undefined) continue;
+    index[candidate.canonical] = candidate.cell;
+    used.add(candidate.cell);
+  }
   return index;
+}
+
+/** Sniff the delimiter from the header line: tabs, then semicolons over commas. */
+function detectDelimiter(text: string): string {
+  const src = text.replace(/^\uFEFF/, "");
+  const headerLine = src.split(/\r?\n/).find((line) => line.trim() !== "") ?? "";
+  if (headerLine.includes("\t")) return "\t";
+  let commas = 0;
+  let semicolons = 0;
+  let inQuotes = false;
+  for (let i = 0; i < headerLine.length; i += 1) {
+    const char = headerLine[i];
+    if (char === '"') {
+      if (inQuotes && headerLine[i + 1] === '"') i += 1;
+      else inQuotes = !inQuotes;
+      continue;
+    }
+    if (inQuotes) continue;
+    if (char === ",") commas += 1;
+    if (char === ";") semicolons += 1;
+  }
+  return semicolons > commas ? ";" : ",";
 }
 
 function asString(value: unknown): string {
@@ -585,6 +694,7 @@ export function parseCsvRows(text: string): CsvParsedRow[] {
   let line = 1;
   let rowLine = 1;
   const src = text.replace(/^\uFEFF/, "");
+  const delimiter = detectDelimiter(text);
   const pushRow = () => {
     cells.push(cell);
     cell = "";
@@ -612,7 +722,7 @@ export function parseCsvRows(text: string): CsvParsedRow[] {
       inQuotes = true;
       continue;
     }
-    if (char === ",") {
+    if (char === delimiter) {
       cells.push(cell);
       cell = "";
       continue;

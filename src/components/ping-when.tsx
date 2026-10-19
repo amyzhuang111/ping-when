@@ -215,10 +215,10 @@ export function PingWhen() {
           <div className="gi-grid mt-8 p-5" data-empty="true">
             <h2 className="gi-h text-[32px] text-white">The queue is empty.</h2>
             <p className="gi-prose mt-4">
-              Bring ping-when-template.csv, or a JSON file with the same fields. Each person needs
-              only a name, role, employer, and start_date — four columns are enough. Signals are
-              optional, one per row (type, date, source_url, note), and a candidate with no signal
-              still scores from start_date (cliff). A missing start_date, or a signal missing its
+              Bring ping-when-template.csv, or a JSON file with the same fields. Only a name is
+              enough to list someone — name is the one required column; role and employer can be
+              blank. start_date is what scores them: a candidate with no signal still scores from
+              start_date (cliff), while a missing or invalid start_date, or a signal missing its
               date, stays on the page as unscored. It is not guessed.
             </p>
           </div>
@@ -226,7 +226,7 @@ export function PingWhen() {
 
         {loaded && people.length === 0 && (
           <div className="gi-grid mt-8 p-5">
-            <p className="gi-prose-sm">No scored candidates yet. Check the rows above — a candidate needs a valid start_date, and any signal needs a valid date — then import the file again.</p>
+            <p className="gi-prose-sm">No scored candidates yet. The people above stay listed as unscored — a candidate needs a valid start_date to score, and any signal needs a valid date. Add a start_date and import the file again to score them.</p>
           </div>
         )}
 

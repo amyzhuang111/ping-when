@@ -171,6 +171,71 @@ for (let i = 0; i < original.length; i += 1) {
   assert(templateParsed.people[0]?.signals[0]?.type === "release", "template example row uses valid release type");
 }
 
+// --- Import fix 2 (Oct 19): fuzzy real-world headers, TSV/semicolon, name-only ---
+{
+  // (a) Candidate Name / Title / Company / Start Date imports.
+  const fuzzy = parseImport(
+    "Candidate Name,Title,Company,Start Date\nMira Sol,Research scientist,Northline,2025-11-09\n",
+    "fuzzy.csv",
+  );
+  assert(fuzzy.errors.length === 0, `fuzzy Candidate Name/Title/Company/Start Date has no errors (got ${JSON.stringify(fuzzy.errors)})`);
+  assert(fuzzy.people.length === 1 && fuzzy.people[0]?.name === "Mira Sol", "fuzzy headers import Mira Sol");
+  assert(fuzzy.people[0]?.roleType === "Research scientist" && fuzzy.people[0]?.org === "Northline", `fuzzy Title->role and Company->employer (got ${fuzzy.people[0]?.roleType} / ${fuzzy.people[0]?.org})`);
+  assert(fuzzy.people[0]?.roleStart === "2025-11-09", `fuzzy Start Date->start_date (got ${fuzzy.people[0]?.roleStart})`);
+
+  // Bare signal date must not steal start_date when a start-ish column exists;
+  // signal/event, url/link and details/comment aliases also map.
+  const signals = parseImport(
+    "Full Name,Job Title,Organisation,Date Started,Event,Signal Date,Link,Details\nMira Sol,Research scientist,Northline,2025-11-09,paper,2026-09-21,https://example.com/mira-fuzzy,A paper note\n",
+    "fuzzy-signals.csv",
+  );
+  assert(signals.errors.length === 0, `fuzzy signal headers have no errors (got ${JSON.stringify(signals.errors)})`);
+  assert(signals.people[0]?.roleStart === "2025-11-09", `Date Started wins start_date over Signal Date (got ${signals.people[0]?.roleStart})`);
+  assert(signals.people[0]?.signals[0]?.type === "release" && signals.people[0]?.signals[0]?.date === "2026-09-21", `Event->type and Signal Date->date (got ${JSON.stringify(signals.people[0]?.signals[0])})`);
+  assert(signals.people[0]?.signals[0]?.sourceUrl === "https://example.com/mira-fuzzy", "Link->source_url in fuzzy headers");
+
+  // (b) Tab-separated paste imports.
+  const tsv = parseImport(
+    "Candidate Name\tTitle\tCompany\tStart Date\nMira Sol\tResearch scientist\tNorthline\t2025-11-09\n",
+    "paste",
+  );
+  assert(tsv.errors.length === 0 && tsv.people.length === 1 && tsv.people[0]?.org === "Northline", `tab-separated paste imports (got people=${tsv.people.length} errors=${JSON.stringify(tsv.errors)})`);
+
+  // (c) Semicolon CSV imports (quoted semicolons still respected).
+  const semi = parseImport(
+    'Candidate Name;Title;Company;Start Date\nMira Sol;Research scientist;"North; Line";2025-11-09\n',
+    "semi.csv",
+  );
+  assert(semi.errors.length === 0 && semi.people.length === 1 && semi.people[0]?.org === "North; Line", `semicolon CSV imports with quoted field (got people=${semi.people.length} errors=${JSON.stringify(semi.errors)})`);
+
+  // (d) Template 8-col unchanged (re-asserted alongside the new delimiters).
+  const templateParsed2 = parseImport(TEMPLATE_CSV, "ping-when-template.csv");
+  assert(TEMPLATE_CSV.split("\n")[0] === "name,role,employer,start_date,type,date,source_url,note", "template 8-col header unchanged in fuzzy block");
+  assert(templateParsed2.errors.length === 0 && templateParsed2.people.length === 1, "template 8-col still imports in fuzzy block");
+
+  // (e) name+employer only: listed, unscored-needs-date, not rejected.
+  const nameEmployer = parseImport("name,employer\nMira Sol,Northline\nTheo Park,Harbor Glass\n", "name-employer.csv");
+  assert(nameEmployer.errors.length === 0, `name+employer has no errors (got ${JSON.stringify(nameEmployer.errors)})`);
+  assert(nameEmployer.people.length === 0 && nameEmployer.unscored.length === 2, `name+employer lists 2 unscored, none scored (got people=${nameEmployer.people.length} unscored=${nameEmployer.unscored.length})`);
+  assert(nameEmployer.unscored.every((person) => person.reason === UNSCORED_LABEL), "name+employer rows are unscored \u2014 needs date");
+  assert(nameEmployer.unscored[0]?.employer === "Northline" && nameEmployer.unscored[0]?.missing.includes("start_date"), "name+employer keeps employer and says missing start_date");
+
+  // (f) name-only imports: listed, unscored-needs-date.
+  const nameOnly = parseImport("name\nMira Sol\nTheo Park\n", "name-only.csv");
+  assert(nameOnly.errors.length === 0 && nameOnly.people.length === 0 && nameOnly.unscored.length === 2, `name-only lists 2 unscored (got people=${nameOnly.people.length} unscored=${nameOnly.unscored.length} errors=${JSON.stringify(nameOnly.errors)})`);
+  assert(nameOnly.unscored.map((person) => person.name).join(",") === "Mira Sol,Theo Park", "name-only keeps both names");
+
+  // Invalid start_date on a row: still listed unscored, not dropped.
+  const badStart = parseImport("name,start_date\nMira Sol,soon\n", "bad-start.csv");
+  assert(badStart.errors.length === 0 && badStart.unscored.length === 1 && badStart.unscored[0]?.name === "Mira Sol", `invalid start_date lists candidate unscored (got ${JSON.stringify(badStart)})`);
+
+  // No name column at all: whole file rejected, error echoes headers saw, row kept.
+  const noName = parseImport("Foo,Bar\nx,y\n", "no-name.csv");
+  assert(noName.people.length === 0 && noName.unscored.length === 0 && noName.errors.length === 1, "no-name file is rejected whole");
+  assert(noName.errors[0]?.row === 1 && noName.errors[0]?.message.includes("Saw: Foo, Bar"), `no-name error echoes saw headers on row 1 (got ${JSON.stringify(noName.errors)})`);
+  assert(noName.errors[0]?.message.includes("Only name is required"), "no-name error says only name is required");
+}
+
 const onDisk = readFileSync(new URL("../public/ping-when-example.csv", import.meta.url), "utf8");
 assert(onDisk === example, "public example file matches the seed conversion");
 

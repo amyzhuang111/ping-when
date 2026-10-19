@@ -299,6 +299,10 @@
 }
 
 @media (max-width: 899px) {
+  /* Column headers stack into five empty rows on a phone; each cell already says what it is. */
+  .gi-row-head {
+    display: none;
+  }
   .gi-row,
   .gi-signal {
     grid-template-columns: 1fr;

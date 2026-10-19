@@ -110,3 +110,12 @@ Checks (scoring arithmetic, import parsing, and independent hand-computed cases;
 ```bash
 npm test
 ```
+
+## Tests
+
+- `npm test` — unit checks (scoring, import, independent re-derivation, ranked export).
+- `BASE_URL=https://ping-when.vercel.app npm run e2e` — headless Chrome end-to-end against any deployment
+  (file upload, paste, 0 errors / 5 scored / 11 needs-start-date on the demo roster, cliff 70, reload
+  persistence, ranked CSV export, 375px layout, console errors). `CHROME_PATH` and `ROSTER` override defaults.
+
+Fonts are self-hosted (Geist variable woff2, SIL OFL) under `src/app/fonts`; no font CDN.

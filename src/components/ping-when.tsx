@@ -8,9 +8,13 @@ import { WeightPanel } from "@/components/weight-panel";
 import { DEFAULT_WEIGHTS } from "@/lib/constants";
 import { drivingLabel, STATUS_LABEL } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
-import { approvedQueueCsv, type ImportResult } from "@/lib/exchange";
+import { approvedQueueCsv, rankedQueueCsv, type ImportResult } from "@/lib/exchange";
 import { closestToTheLine, scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
 import {
+  getWeightsServerSnapshot,
+  getWeightsSnapshot,
+  subscribeWeights,
+  writeWeights,
   getWorkspaceServerSnapshot,
   getWorkspaceSnapshot,
   subscribeWorkspace,
@@ -40,7 +44,9 @@ type View = "week" | "rank" | "next";
 type Band = "all" | "reach" | "warm" | "wait" | "cliff";
 
 export function PingWhen() {
-  const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
+  const storedWeights = useSyncExternalStore(subscribeWeights, getWeightsSnapshot, getWeightsServerSnapshot);
+  const weights: Weights = storedWeights ?? DEFAULT_WEIGHTS;
+  const setWeights = (next: Weights) => writeWeights(weightsEqual(next, DEFAULT_WEIGHTS) ? null : next);
   const [view, setView] = useState<View>("week");
   const [band, setBand] = useState<Band>("all");
   const workspace = useSyncExternalStore(
@@ -123,6 +129,20 @@ export function PingWhen() {
         [id]: workspace.decisions[id] === decision ? undefined : decision,
       },
     });
+  }
+
+  function download(csv: string, filename: string) {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function onExportRanked() {
+    download(rankedQueueCsv(rows, workspace?.unscored ?? []), "ping-when-ranked-queue.csv");
   }
 
   function onExport() {
@@ -214,12 +234,23 @@ export function PingWhen() {
         {!loaded && (
           <div className="gi-grid mt-8 p-5" data-empty="true">
             <h2 className="gi-h text-[32px] text-white">The queue is empty.</h2>
-            <p className="gi-prose mt-4">
-              Bring ping-when-template.csv, or a JSON file with the same fields. Only a name is
-              enough to list someone — name is the one required column; role and employer can be
-              blank. start_date is what scores them: a candidate with no signal still scores from
-              start_date (cliff), while a missing or invalid start_date, or a signal missing its
-              date, stays on the page as unscored. It is not guessed.
+            <p className="gi-prose mt-4">Nothing is scored until you bring a roster. Three steps:</p>
+            <ol className="gi-prose mt-4 list-decimal space-y-2 pl-6" data-testid="how-to">
+              <li>
+                Choose or drop a CSV/JSON file above, or paste rows. Only a name column is required;
+                Download template shows every column.
+              </li>
+              <li>
+                Each person with a start_date gets a score. People without one are listed as
+                unscored (needs start date). Dates are never guessed.
+              </li>
+              <li>
+                Read This week and Closest to the line, drag the weights to see the queue re-order,
+                then Export ranked queue to CSV. Your roster and weights stay in this browser only.
+              </li>
+            </ol>
+            <p className="gi-prose-sm mt-4">
+              Want to see it first? Load example uses 30 fictional seed archetypes, labelled as such.
             </p>
           </div>
         )}
@@ -237,9 +268,17 @@ export function PingWhen() {
             </div>
             <div className="min-w-0">
               <div className="mb-4 flex flex-wrap gap-2">
+                <button type="button" className="gi-btn" onClick={onExportRanked} data-testid="export-ranked">
+                  Export ranked queue (CSV)
+                </button>
                 <button type="button" className="gi-btn" onClick={onExport}>
                   Export approved
                 </button>
+                {dirty && (
+                  <button type="button" className="gi-btn" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
+                    Reset weights
+                  </button>
+                )}
               </div>
               {exportText && (
                 <pre
@@ -366,7 +405,7 @@ function Issues({ workspace }: { workspace: Workspace }) {
         <section>
           <h2 className="gi-h text-[28px] text-white">Unscored.</h2>
           <div className="gi-grid mt-4 overflow-x-auto">
-            <div className="gi-signal gi-mono text-[12px] text-[#888]">
+            <div className="gi-signal gi-row-head gi-mono text-[12px] text-[#888]">
               <div>Rows</div>
               <div>Person</div>
               <div>Flag</div>
@@ -462,6 +501,15 @@ function WeekView({
                 .
               </p>
             )}
+            {entered.length === 0 &&
+              left.length === 0 &&
+              rows.every((row) => baselineById.get(row.person.id)?.rank === row.rank) && (
+                <p data-testid="order-unchanged">
+                  Scores moved, but the order did not. No one here has a stronger cliff signal than
+                  their other signals, so this weight cannot re-rank them. Nothing is invented to
+                  make it move.
+                </p>
+              )}
             {left.length > 0 && (
               <p>
                 Left the queue. {left.map((row) => row.person.name).join(", ")}. Their scores fell
@@ -471,6 +519,7 @@ function WeekView({
           </div>
         )}
       </div>
+      <div data-testid="this-week">
       <QueueTable
         rows={queue}
         baselineById={baselineById}
@@ -481,7 +530,8 @@ function WeekView({
         showActions
         markSeed={markSeed}
       />
-      <div>
+      </div>
+      <div data-testid="closest">
         <h2 className="gi-h text-[28px] text-white">Closest to the line.</h2>
         <p className="gi-prose-sm mt-3">Highest scores that are not this week.</p>
         <div className="mt-4">

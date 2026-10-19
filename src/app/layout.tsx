@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const sans = Geist({
-  subsets: ["latin"],
+/* Self-hosted Geist (SIL OFL), no font CDN at build or run time. */
+const sans = localFont({
+  src: "./fonts/Geist-Variable.woff2",
   variable: "--font-geist",
+  weight: "100 900",
+  display: "swap",
 });
 
-const mono = Geist_Mono({
-  subsets: ["latin"],
+const mono = localFont({
+  src: "./fonts/GeistMono-Variable.woff2",
   variable: "--font-geist-mono",
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Ping when",
   description:
-    "Sourcing is automated. Timing is not. A timing score for thirty fictional research archetypes. Nothing is sent.",
+    "Sourcing is automated. Timing is not. Ranks the roster you import by when to reach out. Nothing is sent.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

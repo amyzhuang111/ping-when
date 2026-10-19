@@ -739,3 +739,27 @@ export function parseCsvRows(text: string): CsvParsedRow[] {
   if (cell.length > 0 || cells.length > 0) pushRow();
   return rows;
 }
+
+/** Every imported person in queue order: scored rows by rank, then unscored rows (never given a guessed score). */
+export function rankedQueueCsv(rows: ScoredResearcher[], unscored: UnscoredCandidate[]): string {
+  const header = "rank,name,status,score,cliff,proof,shift,driving signal,source url,employer,start_date";
+  const scored = rows.map((row) =>
+    csvRow([
+      String(row.rank),
+      row.person.name,
+      row.status,
+      String(row.score),
+      String(Math.round(row.categories.cliff)),
+      String(Math.round(row.categories.proof)),
+      String(Math.round(row.categories.shift)),
+      row.driving.title,
+      sourceUrlFor(row),
+      row.person.org,
+      row.person.roleStart ?? "",
+    ]),
+  );
+  const rest = unscored.map((person) =>
+    csvRow(["", person.name, "needs-start-date", "", "", "", "", "", "", person.employer ?? "", person.startDate ?? ""]),
+  );
+  return `${[header, ...scored, ...rest].join("\n")}\n`;
+}

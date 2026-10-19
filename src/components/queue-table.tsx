@@ -46,7 +46,7 @@ export function QueueTable({
 
   return (
     <div className="gi-grid overflow-x-auto">
-      <div className="gi-row gi-mono text-[12px] text-[#888]">
+      <div className="gi-row gi-row-head gi-mono text-[12px] text-[#888]">
         <div>Rank</div>
         <div>Person</div>
         <div>Score</div>

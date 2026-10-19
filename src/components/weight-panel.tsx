@@ -4,6 +4,7 @@ import { PRESETS, REACH_THRESHOLD, WARM_THRESHOLD } from "@/lib/constants";
 import { weightsEqual } from "@/lib/scoring";
 import { CATEGORY_META } from "@/lib/signals";
 import type { WeightKey, Weights } from "@/lib/types";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 
@@ -88,15 +89,10 @@ export function WeightPanel({
                     setKey(key, next ?? 0);
                   }}
                 />
-                <Input
-                  aria-label={`${meta.slider} weight`}
-                  className="gi-mono w-14 shrink-0 px-1 text-center"
-                  inputMode="numeric"
-                  min={0}
-                  max={100}
-                  type="number"
+                <WeightBox
+                  label={`${meta.slider} weight`}
                   value={weights[key]}
-                  onChange={(event) => setKey(key, event.target.valueAsNumber)}
+                  onCommit={(value) => setKey(key, value)}
                 />
               </div>
             </div>
@@ -126,5 +122,32 @@ export function WeightPanel({
         </p>
       )}
     </div>
+  );
+}
+
+/* Typing "70" over "30" used to clamp to 100 because every keystroke was committed.
+   The box now keeps a draft and commits only a valid 0-100 number. */
+function WeightBox({ label, value, onCommit }: { label: string; value: number; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Input
+      aria-label={label}
+      className="gi-mono w-14 shrink-0 px-1 text-center"
+      inputMode="numeric"
+      min={0}
+      max={100}
+      type="number"
+      value={draft ?? String(value)}
+      onChange={(event) => {
+        const text = event.target.value;
+        setDraft(text);
+        const n = Number(text);
+        if (text !== "" && Number.isFinite(n) && n >= 0 && n <= 100) onCommit(n);
+      }}
+      onBlur={() => setDraft(null)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") setDraft(null);
+      }}
+    />
   );
 }

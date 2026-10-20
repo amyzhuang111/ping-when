@@ -102,7 +102,7 @@ export function ImportPanel({
           <a className="tlink" href="/ping-when-example.csv" download="ping-when-example.csv">
             Download example
           </a>
-          <button type="button" className="tlink" onClick={() => void loadExample()}>
+          <button type="button" id="load-example" className="tlink" onClick={() => void loadExample()}>
             Load example
           </button>
         </div>

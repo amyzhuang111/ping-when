@@ -50,10 +50,11 @@ export function ProductCard({
             {markSeed ? `${seedCode(row.person.id)} · ` : ""}
             {row.person.roleType}
           </p>
+          <p className="score tnum" aria-hidden="true">{row.score}</p>
           <p className={`price${row.status === "reach" ? " reach" : ""}`}>
-            Score {row.score} · {STATUS_WORD[row.status]}
+            {STATUS_WORD[row.status]}
           </p>
-          <p className="role truncate">{drivingLabel(row.driving)}</p>
+          <p className="reason truncate">{drivingLabel(row.driving)}</p>
           {(moved || decision) && (
             <p className="role">
               {moved}
@@ -80,7 +81,8 @@ export function IncompleteCard({ person, onOpen }: { person: UnscoredCandidate; 
           <p className="brandline truncate">{person.employer || "Employer not given"}</p>
           <p className="name">{person.name}</p>
           <p className="role truncate">{person.role}</p>
-          <p className="price">Score — · Incomplete</p>
+          <p className="score tnum" aria-hidden="true">—</p>
+          <p className="price">Incomplete</p>
           <p className="role">Needs start date</p>
         </div>
       </button>

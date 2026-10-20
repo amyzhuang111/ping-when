@@ -45,6 +45,11 @@ function nextCliff(row: ScoredResearcher, asOf: Date): number {
   return soon[0] ?? Number.POSITIVE_INFINITY;
 }
 
+function cliffAhead(row: ScoredResearcher, asOf: Date): Date | null {
+  const t = row.cliffMarks.map((m) => Date.parse(m.date)).filter((x) => x >= asOf.getTime()).sort((a, b) => a - b)[0];
+  return t === undefined ? null : new Date(t);
+}
+
 function download(csv: string, filename: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -193,15 +198,20 @@ export function PingWhen() {
         </div>
       </header>
 
-      <section className={`mx-auto max-w-[1440px] px-4 md:px-10 ${loaded ? "py-8 md:py-10" : "py-16 md:py-24"}`} data-testid="hero">
+      <section className={`mx-auto max-w-[1440px] px-4 md:px-10 ${loaded ? "hero-loaded py-8 md:py-10" : "py-16 md:py-24"}`} data-testid="hero" data-loaded={loaded ? "1" : undefined}>
         <p className="eyebrow muted">
           Week of {formatDay(weekOf(asOf))} through {formatDay(weekEnding(asOf))}
         </p>
-        <h1 className={`serif max-w-[18ch] leading-[1.05] ${loaded ? "mt-3 text-[32px] md:max-w-none md:text-[40px]" : "mt-6 text-[44px] md:text-[72px]"}`}>Sourcing is automated. Timing is not.</h1>
+        <h1 className={`serif max-w-[18ch] leading-[1.05] ${loaded ? "mt-3 text-[32px] md:max-w-none md:text-[40px]" : "mt-6 text-[44px] md:text-[72px] xl:text-[96px]"}`}>Sourcing is automated. <span className="key">Timing is not.</span></h1>
         {!loaded && (
           <p className="prose-s mt-6 text-[16px]">
-            It decides when to reach out. A person still writes. The queue scores only the roster you import.
+            It decides when to reach out. A person still writes, and the queue scores only the roster you import.
           </p>
+        )}
+        {!loaded && hydrated && (
+          <button type="button" className="tlink mt-8" data-testid="hero-example" onClick={() => document.getElementById("load-example")?.click()}>
+            See it with 30 example researchers
+          </button>
         )}
       </section>
 
@@ -372,12 +382,12 @@ export function PingWhen() {
               )}
               {people.length > 0 && reach.length === 0 && !filtering && closest && (
                 <p className="mt-10 text-[14px] tnum" data-testid="none-clear">
-                  Nothing clears {REACH_THRESHOLD} this week. Closest:{" "}
+                  Next likely ready is{" "}
                   <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
                     onClick={() => setOpenId(closest.person.id)}>
-                    {closest.person.name}, {closest.score}
+                    {closest.person.name}
                   </a>
-                  .
+                  {cliffAhead(closest, asOf) ? ` on ${formatDay(cliffAhead(closest, asOf)!)}` : ""}, since nobody clears {REACH_THRESHOLD} this week.
                 </p>
               )}
               {people.length > 0 && (

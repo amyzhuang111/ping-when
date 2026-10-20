@@ -317,3 +317,16 @@ details.method[open] > summary { margin-bottom: 24px; }
 .ghostgrid > div:nth-child(1) { position: relative; z-index: 1; }
 .pgrid > [data-rank="1"]:not([data-status="reach"]) { outline: 0; }
 .pgrid > [data-rank="1"]:not([data-status="reach"]) > .card { outline: 1px solid var(--tile); outline-offset: -1px; }
+
+/* Taste+Design 44eab85 fixes */
+@media (min-width: 1024px) {
+  [data-testid="hero"]:not(.hero-loaded) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 64px; align-items: end; }
+  [data-testid="hero"]:not(.hero-loaded) > .eyebrow { grid-column: 1 / -1; }
+  [data-testid="hero"]:not(.hero-loaded) > h1 { grid-column: 1; grid-row: 2 / span 2; }
+  [data-testid="hero"]:not(.hero-loaded) > p.prose-s { grid-column: 2; grid-row: 2; margin-top: 0; }
+  [data-testid="hero"]:not(.hero-loaded) > .tlink { grid-column: 2; grid-row: 3; justify-self: start; margin-top: 24px; }
+  [data-testid="hero"]:not(.hero-loaded) > .ghostgrid { grid-column: 1 / -1; }
+}
+.closest-hero .ch-score { color: var(--tile); }
+.ch-line, [data-testid="summary"], section[data-testid] > p.muted { color: var(--body); }
+@media (max-width: 699px) { .closest-hero { margin-top: 16px; padding: 16px; gap: 12px; } .ch-name { font-size: 28px; } .ch-score { font-size: 44px; } .ch-track { margin: 10px 0 8px; } .ch-line { padding-top: 10px; } }

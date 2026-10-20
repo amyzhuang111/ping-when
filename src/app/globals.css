@@ -338,3 +338,25 @@ details.method[open] > summary { margin-bottom: 24px; }
   [data-testid="hero"]:not(.hero-loaded) > p.prose-s { align-self: end; }
   [data-testid="hero"]:not(.hero-loaded) > .tlink { margin-top: 16px; }
 }
+
+/* Taste+Design 54fb0ed fixes */
+[data-testid="hero"]:not(.hero-loaded) { padding-bottom: clamp(96px, 14vh, 160px); }
+.tlink { white-space: nowrap; }
+@media (min-width: 1024px) and (max-width: 1279px) {
+  [data-testid="hero"]:not(.hero-loaded) { grid-template-columns: max-content minmax(260px, 1fr); }
+  .ghostgrid > div:nth-child(1) .gname { font-size: 13px; line-height: 18px; }
+}
+@media (max-width: 699px) {
+  .ch-line { text-wrap: balance; }
+  [data-testid="hero"].hero-loaded { padding-top: 16px; padding-bottom: 0; }
+  .closest-hero { margin-top: 12px; }
+  .ghostgrid > div { min-height: 120px; }
+  .ghostgrid > div:nth-child(n+3) { display: flex; }
+  .ghostgrid > div:nth-child(n+4) { display: none; }
+}
+/* The review's 14vh left 'Bring a roster.' at 852px (1440x900) and 802px (1024x900); 26vh clears the fold at both. */
+[data-testid="hero"]:not(.hero-loaded) { padding-bottom: clamp(160px, 26vh, 260px); }
+/* 1024-1279: the 260px floor plus a 64px gap pushed the button and grid ~30px past the content edge. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  [data-testid="hero"]:not(.hero-loaded) { grid-template-columns: max-content minmax(0, 1fr); column-gap: 32px; }
+}

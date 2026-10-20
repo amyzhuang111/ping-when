@@ -379,7 +379,7 @@ function scoreOne(person: Researcher, weights: Weights = BALANCED) {
     assert(row?.reason === UNSCORED_LABEL, `${name} is ${UNSCORED_LABEL} (got ${row?.reason})`);
   }
   assert(imported.errors.length === 1 && imported.errors[0]?.row === 4, `bad row is line 4 (got ${imported.errors[0]?.row})`);
-  console.log("case 10 unscored          expected no score, flag “unscored — needs date”, error on row 4");
+  console.log("case 10 unscored          expected no score, flag “unscored, needs date”, error on row 4");
   console.log(`        computed          scored ${imported.people.length}, unscored ${imported.unscored.map((person) => `${person.name}: ${person.reason}`).join("; ")}, error row ${imported.errors[0]?.row}`);
 }
 

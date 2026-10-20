@@ -10,7 +10,7 @@ export const TEMPLATE_CSV = `${TEMPLATE_HEADER}\nFictional Example,Research scie
 
 export const DEFAULT_SIGNAL_STRENGTH = 0.6;
 
-export const UNSCORED_LABEL = "unscored — needs date";
+export const UNSCORED_LABEL = "unscored, needs date";
 
 /** Signal-type aliases, keyed by the type stripped of spaces/hyphens/underscores and lower-cased. */
 const SIGNAL_TYPE_ALIASES: Record<string, ObservedSignalType> = {

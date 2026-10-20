@@ -65,9 +65,13 @@ Default weights are **30 cliff / 40 proof / 30 shift**. Drag the weights (or use
 
 ## Decisions stay local
 
-Approve, Snooze, and Dismiss record a decision on this machine only. Nothing is sent, drafted, or followed up. **Export approved** downloads the approved rows as CSV (`ping-when-approved.csv`).
+Approve, Snooze, and Dismiss record a decision on this machine only. Nothing is sent, drafted, or followed up. Export approved downloads the approved rows as CSV (`ping-when-approved.csv`).
 
-A layoff signal is news about the employer, not proof this person was affected — open the source link before you approve. The line at 60 predicts a likelier reply, not a hire.
+Export ranked queue (Excel) saves `ping-when-ranked-queue.xlsx`: every imported person in rank order, with status, score parts, window dates as real date cells, your decision, start date, a live source link, and the suggested angle. The styling follows the shared pretty_sheet formatter: a title row, a black header, frozen panes, a filter on every column, widths capped at 46. Rows that are ready to reach are yellow. People with no start date stay at the bottom with no score. A second sheet, About, says which file was scored, on what day, under which weights. ExcelJS 4.4.0 (MIT) is vendored at `public/vendor/exceljs.min.js` and loads only when you click.
+
+Calendar reminders save an `.ics` file. In the drawer, one person; from the queue, everyone approved. Each event is all day, on the date the driving window opens, or today if it is open already. The note holds what a writer needs before typing: score and window, plus the link to read first and the angle to open on. A person whose window has closed is named and skipped, not scheduled.
+
+A layoff signal is news about the employer, not proof this person was affected. Open the source link before you approve. The line at 60 predicts a likelier reply, not a hire.
 
 ## Signal table
 

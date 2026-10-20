@@ -291,3 +291,7 @@ details.method[open] > summary { margin-bottom: 24px; }
   .closest-hero { grid-template-columns: 1fr; padding: 20px; }
   .ch-score { font-size: 56px; }
 }
+/* Shared-edge outlines: every cell and the grid edge draw on the same pixel, so an empty last cell is framed too. */
+.pgrid { border: 0; gap: 1px; padding: 0; outline: 1px solid var(--rule); outline-offset: 0; margin-left: 1px; margin-right: 1px; }
+.pgrid > * { border: 0 !important; outline: 1px solid var(--rule); }
+@media (max-width: 699px) { .nav-wide { display: none; } }

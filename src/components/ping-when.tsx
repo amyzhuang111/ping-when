@@ -8,6 +8,8 @@ import { WeightPanel } from "@/components/weight-panel";
 import { DEFAULT_WEIGHTS, REACH_THRESHOLD } from "@/lib/constants";
 import { drivingLabel } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
+import { planReminders, remindersIcs } from "@/lib/calendar";
+import { loadExcel, queueSheet, queueXlsx } from "@/lib/workbook";
 import { approvedQueueCsv, rankedQueueCsv, type ImportResult } from "@/lib/exchange";
 import { closestToTheLine, scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
 import { SIGNAL_GUIDE } from "@/lib/signals";
@@ -45,8 +47,8 @@ function nextCliff(row: ScoredResearcher, asOf: Date): number {
   return soon[0] ?? Number.POSITIVE_INFINITY;
 }
 
-function download(csv: string, filename: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+function download(data: string | ArrayBuffer, filename: string, type = "text/csv;charset=utf-8") {
+  const blob = new Blob([data], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -74,6 +76,7 @@ export function PingWhen() {
   const [refineOpen, setRefineOpen] = useState(false);
   const [limit, setLimit] = useState({ reach: PAGE, near: PAGE, incomplete: PAGE });
   const [importMs, setImportMs] = useState<number | null>(null);
+  const [notice, setNotice] = useState("");
 
   const people = workspace?.people ?? NO_PEOPLE;
   const unscored = useMemo(() => workspace?.unscored ?? [], [workspace]);
@@ -95,7 +98,7 @@ export function PingWhen() {
   const orgs = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of rows) counts.set(r.person.org, (counts.get(r.person.org) ?? 0) + 1);
-    for (const u of unscored) counts.set(u.employer || "—", (counts.get(u.employer || "—") ?? 0) + 1);
+    for (const u of unscored) counts.set(u.employer || "No employer", (counts.get(u.employer || "No employer") ?? 0) + 1);
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
   }, [rows, unscored]);
   const types = useMemo(() => {
@@ -120,7 +123,7 @@ export function PingWhen() {
     .filter(
       (u) =>
         (statusF.size === 0 || statusF.has("incomplete")) &&
-        (orgF.size === 0 || orgF.has(u.employer || "—")) &&
+        (orgF.size === 0 || orgF.has(u.employer || "No employer")) &&
         typeF.size === 0,
     )
     .sort((a, b) => (sort === "name" ? (a.name < b.name ? -1 : 1) : 0));
@@ -148,6 +151,38 @@ export function PingWhen() {
       decisions: { ...workspace.decisions, [id]: workspace.decisions[id] === decision ? undefined : decision },
     });
   }
+  const approvedIds = new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id));
+  async function exportXlsx() {
+    setNotice("Building the spreadsheet.");
+    try {
+      const lib = await loadExcel();
+      const buf = await queueXlsx(lib, queueSheet(rows, unscored, decisions, weights, asOf, workspace?.label ?? ""));
+      download(buf, "ping-when-ranked-queue.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      setNotice(`Saved ping-when-ranked-queue.xlsx. ${rows.length} scored rows, ${unscored.length} waiting on a start date.`);
+    } catch (e) {
+      setNotice(`Spreadsheet not saved. ${e instanceof Error ? e.message : ""}`.trim());
+    }
+  }
+  function saveReminders(target: ScoredResearcher[], filename: string) {
+    const plan = planReminders(target, asOf);
+    const skipped = plan.closed.length > 0 ? ` Skipped, window already closed: ${plan.closed.join(", ")}.` : "";
+    if (plan.reminders.length === 0) {
+      setNotice(`No reminder saved.${skipped}`);
+      return;
+    }
+    download(remindersIcs(plan.reminders), filename, "text/calendar;charset=utf-8");
+    const n = plan.reminders.length;
+    setNotice(`Saved ${filename} with ${n} reminder${n === 1 ? "" : "s"}.${skipped}`);
+  }
+  function remindApproved() {
+    const target = rows.filter((r) => approvedIds.has(r.person.id));
+    if (target.length === 0) {
+      setNotice("No one is approved yet. Open a card and choose Approve, then save reminders.");
+      return;
+    }
+    saveReminders(target, "ping-when-reminders.ics");
+  }
+
   function clearAll() {
     writeWorkspace(null);
     writeWeights(null);
@@ -165,7 +200,7 @@ export function PingWhen() {
 
   const openRow = rows.find((r) => r.person.id === openId);
   const openUnscored = unscored.find((u) => u.id === openId);
-  const closeDrawer = useCallback(() => setOpenId(null), []);
+  const closeDrawer = useCallback(() => { setOpenId(null); setNotice(""); }, []);
   const datasetLine = !loaded ? "" : example ? "EXAMPLE DATA, fictional" : "Real public sources · scores are illustrative";
 
   return (
@@ -173,9 +208,9 @@ export function PingWhen() {
       <header className="top" data-testid="topbar">
         <span className="mark">ping when</span>
         <nav className="navrow" aria-label="Sections" data-testid="nav">
-          {(!loaded || reach.length > 0) && <a className="tl" href="#new-in">New in</a>}
+          {(!loaded || reach.length > 0) && <a className="tl nav-wide" href="#new-in">New in</a>}
           <a className="tl" href="#almost">Almost there</a>
-          {(!loaded || unscored.length > 0) && <a className="tl" href="#incomplete">Incomplete</a>}
+          {(!loaded || unscored.length > 0) && <a className="tl nav-wide" href="#incomplete">Incomplete</a>}
           <a className="tl" href="#import">Import</a>
           <a className="tl" href="#method">Method</a>
         </nav>
@@ -201,13 +236,7 @@ export function PingWhen() {
       </section>
 
       <div className="wrapx pb-16">
-        <ImportPanel loaded={loaded} example={example} label={workspace?.label ?? ""} onImport={onImport} onClear={clearAll} />
-        {importMs !== null && (
-          <p className="mt-4 text-[12px] muted tnum" data-testid="import-ms">
-            Parsed in {Math.round(importMs)} ms.
-          </p>
-        )}
-
+        {!loaded && <ImportPanel loaded={loaded} example={example} label={workspace?.label ?? ""} onImport={onImport} onClear={clearAll} />}
         {loaded && workspace && workspace.errors.length > 0 && (
           <section className="mt-12">
             <h2 className="h-section">Import errors.</h2>
@@ -318,7 +347,7 @@ export function PingWhen() {
                     <p>
                       Entered ready to reach:{" "}
                       {entered
-                        .map((r) => `${r.person.name} (${drivingLabel(r.driving).toLowerCase()}, was ${baselineById.get(r.person.id)?.rank ?? "—"}, now ${r.rank})`)
+                        .map((r) => `${r.person.name} (${drivingLabel(r.driving).toLowerCase()}, was ${baselineById.get(r.person.id)?.rank ?? "unranked"}, now ${r.rank})`)
                         .join("; ")}
                       .
                     </p>
@@ -393,12 +422,18 @@ export function PingWhen() {
                     className="tlink"
                     onClick={() =>
                       download(
-                        approvedQueueCsv(rows, new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id))),
+                        approvedQueueCsv(rows, approvedIds),
                         "ping-when-approved.csv",
                       )
                     }
                   >
                     Export approved
+                  </button>
+                  <button type="button" className="tlink" data-testid="export-xlsx" onClick={exportXlsx}>
+                    Export ranked queue (Excel)
+                  </button>
+                  <button type="button" className="tlink" data-testid="remind-approved" onClick={remindApproved}>
+                    Calendar reminders for approved ({approvedIds.size})
                   </button>
                   {dirty && (
                     <button type="button" className="tlink" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
@@ -407,10 +442,21 @@ export function PingWhen() {
                   )}
                 </div>
               )}
+              <p className={notice ? "mt-3 text-[13px] tnum" : "sr-only"} aria-live="polite" data-testid="notice">{notice}</p>
             </main>
           </div>
         )}
 
+        {loaded && (
+          <div className="mt-14" data-testid="loaded-file">
+            <ImportPanel loaded={loaded} example={example} label={workspace?.label ?? ""} onImport={onImport} onClear={clearAll} />
+            {importMs !== null && (
+              <p className="mt-2 text-[12px] muted tnum" data-testid="import-ms">
+                Parsed in {Math.round(importMs)} ms.
+              </p>
+            )}
+          </div>
+        )}
         <footer className="cc-foot">
           <p className="foot">Nothing is sent. Data stays in your browser. Scores are a guide, so open the source before you act.</p>
           <hr className="hair" />
@@ -438,6 +484,8 @@ export function PingWhen() {
           peers={example ? (peersById.get(openRow.person.org) ?? []).filter((p) => p.id !== openRow.person.id) : []}
           decision={decisions[openRow.person.id]}
           onDecide={(d) => onDecide(openRow.person.id, d)}
+          onRemind={() => saveReminders([openRow], `ping-when-reminder-${openRow.person.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person"}.ics`)}
+          notice={notice}
           onClose={closeDrawer}
           markSeed={example}
         />

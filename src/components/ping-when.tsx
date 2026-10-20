@@ -229,18 +229,18 @@ export function PingWhen() {
           </p>
         )}
         {!loaded && hydrated && (
-          <button type="button" className="tlink mt-8" data-testid="hero-example" onClick={() => document.getElementById("load-example")?.click()}>
+          <button type="button" className="tlink primary mt-8" data-testid="hero-example" onClick={() => document.getElementById("load-example")?.click()}>
             See it with 30 example researchers
           </button>
         )}
         {!loaded && (
           <div className="ghostgrid" data-testid="ghostgrid" aria-hidden="true">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 9 }).map((_, i) => (
               <div key={i}>
                 <span className="eyebrow">{i === 0 ? "Ready to reach" : "Employer"}</span>
                 <span className="gname">{i === 0 ? "Your first ready-to-reach person lands here" : "Name"}</span>
                 {i === 0 ? <span className="gscore lit tnum">{REACH_THRESHOLD}+</span> : <span className="gscore">--</span>}
-                <span className="eyebrow">{i === 0 ? "This week" : "Wait"}</span>
+                <span className="eyebrow">{i === 0 ? "Past 60 takes signals that land together, like an anniversary plus a new paper." : "Wait"}</span>
               </div>
             ))}
           </div>
@@ -278,7 +278,8 @@ export function PingWhen() {
 
         {loaded && (
           <div className="mt-6 hair-t pt-6">
-            <aside id="adjust-panel" className={`side${refineOpen ? " open" : ""}`} aria-label="Adjust weights and filters" hidden={!refineOpen}>
+            {refineOpen && (
+            <aside id="adjust-panel" className="side open" aria-label="Adjust weights and filters">
               {people.length > 0 && <WeightPanel weights={weights} onChange={setWeights} />}
               <div className="mt-10">
                 <h3>Status</h3>
@@ -331,8 +332,36 @@ export function PingWhen() {
                 </button>
               )}
             </aside>
+            )}
 
             <main className="min-w-0">
+              {people.length > 0 && reach.length === 0 && !filtering && closest && (
+                <>
+                <section className="closest-hero" data-testid="closest-hero" aria-label="Closest to ready">
+                  <div className="ch-who">
+                    <p className="eyebrow">Closest to ready · {closest.person.org}</p>
+                    <button type="button" className="ch-name" onClick={() => setOpenId(closest.person.id)}>{closest.person.name}</button>
+                    <p className="ch-why">{drivingLabel(closest.driving)} · {closest.person.roleType}</p>
+                  </div>
+                  <div className="ch-meter" aria-hidden="true">
+                    <p className="ch-score tnum">{closest.score}<span>/{REACH_THRESHOLD}</span></p>
+                    <div className="ch-track"><div className="ch-fill" style={{ width: `${Math.min(100, (closest.score / REACH_THRESHOLD) * 100)}%` }} /></div>
+                    <p className="eyebrow tnum">{REACH_THRESHOLD - closest.score} points short of {REACH_THRESHOLD}</p>
+                  </div>
+                  <p className="ch-line tnum" data-testid="none-clear">
+                    Nobody clears {REACH_THRESHOLD} this week, so no card is lit. Open{" "}
+                    <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
+                      onClick={() => setOpenId(closest.person.id)}>
+                      {closest.person.name}
+                    </a>{" "}
+                    to see which signal would move the score.
+                  </p>
+                </section>
+                <p className="ch-def" data-testid="ready-definition">
+                  Ready to reach means {REACH_THRESHOLD} or more out of 100 while the signal behind it is still open this week. The score blends work anniversaries, recent papers or releases, and changes at their employer or in their role.
+                </p>
+                </>
+              )}
               <div className="toolbar">
                 <p className="text-[13px] muted tnum" data-testid="summary">
                   {people.length} scored · {unscored.length} need a start date{workspace && workspace.errors.length > 0 ? ` · ${workspace.errors.length} import errors` : ""}
@@ -382,28 +411,6 @@ export function PingWhen() {
                   <More shown={limit.reach} total={reach.length} onMore={() => setLimit({ ...limit, reach: limit.reach + PAGE })} />
                 </Section>
               )}
-              {people.length > 0 && reach.length === 0 && !filtering && closest && (
-                <section className="closest-hero" data-testid="closest-hero" aria-label="Closest to ready">
-                  <div className="ch-who">
-                    <p className="eyebrow">Closest to ready · {closest.person.org}</p>
-                    <button type="button" className="ch-name" onClick={() => setOpenId(closest.person.id)}>{closest.person.name}</button>
-                    <p className="ch-why">{drivingLabel(closest.driving)} · {closest.person.roleType}</p>
-                  </div>
-                  <div className="ch-meter" aria-hidden="true">
-                    <p className="ch-score tnum">{closest.score}<span>/{REACH_THRESHOLD}</span></p>
-                    <div className="ch-track"><div className="ch-fill" style={{ width: `${Math.min(100, (closest.score / REACH_THRESHOLD) * 100)}%` }} /></div>
-                    <p className="eyebrow tnum">{REACH_THRESHOLD - closest.score} points under the line</p>
-                  </div>
-                  <p className="ch-line tnum" data-testid="none-clear">
-                    Nobody clears {REACH_THRESHOLD} this week, so no card is lit. Open{" "}
-                    <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
-                      onClick={() => setOpenId(closest.person.id)}>
-                      {closest.person.name}
-                    </a>{" "}
-                    to see which signal would move the score.
-                  </p>
-                </section>
-              )}
               {people.length > 0 && (
                 <Section id="almost" testid="closest" title="Almost there" count={near.length} sub="Highest scores that are not ready this week." empty="No one here with these filters.">
                   {near.slice(0, limit.near).map((r) => (
@@ -444,7 +451,7 @@ export function PingWhen() {
                   <button type="button" className="tlink" data-testid="export-xlsx" onClick={exportXlsx}>
                     Export ranked queue (Excel)
                   </button>
-                  <button type="button" className="tlink" data-testid="remind-approved" onClick={remindApproved}>
+                  <button type="button" className="tlink primary" data-testid="remind-approved" onClick={remindApproved}>
                     Calendar reminders for approved ({approvedIds.size})
                   </button>
                   {dirty && (

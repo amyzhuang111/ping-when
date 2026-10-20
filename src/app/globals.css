@@ -390,3 +390,33 @@ details.method[open] > summary { margin-bottom: 24px; }
 .pgrid > * { min-width: 0; }
 @media (max-width: 699px) { .pgrid { grid-template-columns: minmax(0, 1fr); } }
 .pgrid .card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+@media (min-width: 1024px) { [data-testid="hero"]:not(.hero-loaded) .ghostgrid > div { min-height: 128px; } }
+
+/* Independent-rater fixes on 624bc7d */
+.tlink.primary { background: var(--accent); color: #000; border-color: var(--accent); min-height: 48px; padding: 0 20px; display: inline-flex; align-items: center; font-weight: 500; }
+.tlink.primary:hover { background: #9db3c4; }
+@media (min-width: 1024px) {
+  [data-testid="hero"]:not(.hero-loaded) > h1 { grid-column: 1; grid-row: 2; }
+  [data-testid="hero"]:not(.hero-loaded) > .tlink { grid-column: 1; grid-row: 3; margin-top: 28px; }
+  [data-testid="hero"]:not(.hero-loaded) > p.prose-s { grid-column: 2; grid-row: 2 / span 2; align-self: end; }
+}
+.ghostgrid > div:nth-child(1) .eyebrow:last-child { text-transform: none; font-family: var(--font-sans); font-size: 13px; color: var(--body); }
+.hero-loaded h1 { font-size: clamp(36px, 4vw, 56px) !important; }
+.ch-def { margin-top: 12px; font-size: 14px; line-height: 21px; color: var(--body); max-width: 80ch; }
+.toolbar { margin-top: 32px; }
+.ctext .score { font-size: 32px; color: rgba(255,255,255,.7); }
+.pgrid > :nth-child(-n+3) .ctext .score { font-size: 44px; }
+[data-score="0"] .ctext .score { color: rgba(255,255,255,.4); }
+@media (max-width: 699px) { .ctext .score { font-size: 32px; } .pgrid > :nth-child(-n+3) .ctext .score { font-size: 40px; } }
+.toolbar { margin-top: 20px; }
+#almost.mt-14, #new-in.mt-14 { margin-top: 28px; }
+.closest-hero { margin-top: 20px; }
+@media (min-width: 1024px) {
+  [data-testid="hero"]:not(.hero-loaded) { padding-top: 48px; }
+  [data-testid="hero"]:not(.hero-loaded) > .tlink { margin-top: 24px; }
+  [data-testid="hero"]:not(.hero-loaded) .ghostgrid { margin-top: 32px; }
+  [data-testid="hero"]:not(.hero-loaded) .ghostgrid > div { min-height: 112px; }
+  .ghostgrid > div:nth-child(1) .eyebrow:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 1359px) { .ghostgrid > div:nth-child(1) .eyebrow:last-child { white-space: normal; overflow: visible; } }
+@media (max-width: 699px) { .hero-loaded h1 { font-size: 28px !important; line-height: 32px; } .ch-def { font-size: 13px; line-height: 19px; } }

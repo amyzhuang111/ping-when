@@ -37,7 +37,7 @@ export const CATEGORY_META: Record<
 export const SIGNAL_GUIDE: Record<SignalType, SignalGuide> = {
   cliff: {
     type: "cliff",
-    label: "Tenure cliff",
+    label: "Work anniversary",
     short: "12 / 24 / 36-month mark",
     category: "cliff",
     what: "The 12-, 24-, or 36-month anniversary of the current role. The one-year mark is the classic cliff: unvested equity becomes theirs, and the cost of leaving drops. Year two and year three are real and weaker: refreshers and habit dilute them. The score uses whichever mark is strongest right now, not all three added together.",

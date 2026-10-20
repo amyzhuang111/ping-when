@@ -44,7 +44,7 @@ export function ProductCard({
           <span className="quick" aria-hidden="true">Quick view</span>
         </div>
         <div className="ctext">
-          <p className="brandline truncate">{row.person.org}</p>
+          <p className="brandline truncate">{row.person.org} · {STATUS_WORD[row.status]}</p>
           <p className="name">{row.person.name}</p>
           <p className="role truncate">
             {markSeed ? `${seedCode(row.person.id)} · ` : ""}
@@ -78,7 +78,7 @@ export function IncompleteCard({ person, onOpen }: { person: UnscoredCandidate; 
           <span className="quick" aria-hidden="true">Quick view</span>
         </div>
         <div className="ctext">
-          <p className="brandline truncate">{person.employer || "Employer not given"}</p>
+          <p className="brandline truncate">{person.employer || "Employer not given"} · Incomplete</p>
           <p className="name">{person.name}</p>
           <p className="role truncate">{person.role}</p>
           <p className="score tnum" aria-hidden="true">n/a</p>

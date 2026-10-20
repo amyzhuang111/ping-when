@@ -235,7 +235,7 @@ export function PingWhen() {
         )}
         {!loaded && (
           <div className="ghostgrid" data-testid="ghostgrid" aria-hidden="true">
-            {Array.from({ length: 10 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <div key={i}>
                 <span className="eyebrow">{i === 0 ? "Ready to reach" : "Employer"}</span>
                 <span className="gname">{i === 0 ? "Your first ready-to-reach person lands here" : "Name"}</span>

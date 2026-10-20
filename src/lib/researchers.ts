@@ -848,7 +848,7 @@ export const RESEARCHERS: Researcher[] = [
         date: "2026-10-07",
         title: "Evals folded into the product group",
         detail:
-          "Lowtide announced evals now sit in the product group, separate from the research release line. Danae is named. Mateo, on the same fictional employer, is not — his signal is the checkpoint, not this move.",
+          "Lowtide announced evals now sit in the product group, separate from the research release line. Danae is named. Mateo, on the same fictional employer, is not; his signal is the checkpoint, not this move.",
         strength: 0.84,
       }),
     ],

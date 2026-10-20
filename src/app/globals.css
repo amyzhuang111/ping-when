@@ -367,3 +367,26 @@ details.method[open] > summary { margin-bottom: 24px; }
 .ghostgrid .gscore { color: rgba(255,255,255,.28); }
 .ghostgrid > div:nth-child(1) { background: rgba(134,161,182,.14); }
 @media (max-width: 699px) { .ghostgrid > div { min-height: 104px; } }
+
+/* Independent-rater fixes on 0a30c79 */
+/* Status merged into the org line; the separate small mono status line is gone. */
+.ctext .price { display: none; }
+.pgrid > :nth-child(-n+3) .ctext .score { font-size: 64px; }
+.pgrid > :nth-child(-n+3) .ctext .name { font-size: 20px; line-height: 26px; }
+.pgrid > :nth-child(-n+3) .ctext .reason { font-size: 15px; line-height: 22px; }
+/* Empty /: one row; the lit cell is two columns wide with a one-line explanation. */
+@media (min-width: 700px) {
+  .ghostgrid > div:nth-child(1) { grid-column: span 2; }
+  .ghostgrid > div:nth-child(1) .gname { white-space: nowrap; font-size: 15px; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) and (min-height: 820px) {
+  [data-testid="hero"]:not(.hero-loaded) { padding-bottom: clamp(96px, 26vh, 240px); }
+}
+/* With one placeholder row, padding alone left 'Bring a roster.' at ~740px. As in Contract Cliffs, the empty first screen fills the viewport. */
+@media (min-width: 1024px) {
+  [data-testid="hero"]:not(.hero-loaded) { min-height: calc(100svh - 64px); box-sizing: border-box; align-content: start; padding-bottom: 48px; }
+}
+/* Long roles (e.g. 'Researcher (team and title unverified, medium confidence)') must truncate, not widen the track. */
+.pgrid > * { min-width: 0; }
+@media (max-width: 699px) { .pgrid { grid-template-columns: minmax(0, 1fr); } }
+.pgrid .card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }

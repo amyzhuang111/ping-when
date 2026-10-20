@@ -1,7 +1,7 @@
 // End-to-end check with Playwright. Usage:
 //   BASE_URL=https://ping-when.vercel.app node scripts/e2e.mjs            (Chromium: system Chrome)
 //   BROWSER=firefox BASE_URL=... node scripts/e2e.mjs                      (Playwright Firefox)
-// ROSTER overrides the CSV (default: Amy's local 16-person roster, kept out of the repo), or use
+// ROSTER overrides the CSV (default: Amy's local 24-person roster, kept out of the repo), or use
 // ROSTER=scripts/fixtures/export-fixture.csv EXPECT_SCORED=5 EXPECT_UNSCORED=11 EXPECT_NAME="Fixture Echo".
 // SHOT_DIR saves screenshots at 375 and 1440 widths. LINKS=0 skips the network link check.
 import { chromium, firefox } from "playwright";
@@ -13,8 +13,8 @@ const ExcelJS = createRequire(import.meta.url)("../public/vendor/exceljs.min.js"
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const ROSTER = path.resolve(process.env.ROSTER || "/workspace/x-growth/ping-when-real-demo.csv");
 const SCALE = path.resolve("scripts/fixtures/scale-2000.csv");
-const EXPECT_SCORED = Number(process.env.EXPECT_SCORED ?? 14);
-const EXPECT_UNSCORED = Number(process.env.EXPECT_UNSCORED ?? 2);
+const EXPECT_SCORED = Number(process.env.EXPECT_SCORED ?? 15);
+const EXPECT_UNSCORED = Number(process.env.EXPECT_UNSCORED ?? 9);
 const EXPECT_NAME = process.env.EXPECT_NAME ?? "Parker-Holder";
 const ENGINE = process.env.BROWSER === "firefox" ? "firefox" : "chromium";
 const CHROME = process.env.CHROME_PATH || ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"].find(existsSync);
@@ -268,7 +268,9 @@ if (EXPECT_NAME === "Parker-Holder") {
 }
 {
   // Scored people only: incomplete drawers list what is missing, not signals (never scored).
-  const notes = [...new Set(csv.split("\n").slice(1).filter((l) => l && l.split(",")[3]).map((l) => (l.match(/("(?:[^"]|"")*"|[^,]*)$/) || [""])[0].replace(/^"|"$/g, "").replace(/""/g, '"')).filter(Boolean))];
+  // Quote-aware split: roles like "Lead, media generation" contain commas.
+  const cells = (l) => (l.match(/("(?:[^"]|"")*"|[^,]*)(,|$)/g) || []).map((c) => c.replace(/,$/, "").replace(/^"|"$/g, "").replace(/""/g, '"'));
+  const notes = [...new Set(csv.split("\n").slice(1).map(cells).filter((c) => c[3]).map((c) => c[7]).filter(Boolean))];
   const missing = notes.filter((n) => !allText.includes(n));
   check(`real roster: all ${notes.length} scored-people source titles shown in full in the drawers (no truncation)`, notes.length > 0 && missing.length === 0, missing.join(" | "));
 }

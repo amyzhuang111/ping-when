@@ -222,7 +222,7 @@ export function PingWhen() {
           {hydrated && datasetLine ? " · " : ""}
           <span data-testid="dataset">{hydrated ? datasetLine : ""}</span>
         </p>
-        <h1 className={`serif max-w-[18ch] leading-[1.05] ${loaded ? "mt-3 text-[32px] md:max-w-none md:text-[40px]" : "mt-6 text-[44px] md:text-[72px] xl:text-[96px]"}`}>Sourcing is automated. <span className="key">Timing is not.</span></h1>
+        <h1 className={`display ${loaded ? "mt-3" : "mt-6"}`}>Sourcing is automated.{loaded ? " " : <br />}<span className="key">Timing is not.</span></h1>
         {!loaded && (
           <p className="prose-s mt-6 text-[16px]">
             It decides when to reach out. A person still writes, and the queue scores only the roster you import.
@@ -232,6 +232,18 @@ export function PingWhen() {
           <button type="button" className="tlink mt-8" data-testid="hero-example" onClick={() => document.getElementById("load-example")?.click()}>
             See it with 30 example researchers
           </button>
+        )}
+        {!loaded && (
+          <div className="ghostgrid" data-testid="ghostgrid" aria-hidden="true">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i}>
+                <span className="eyebrow">{i === 0 ? "Ready to reach" : "Employer"}</span>
+                <span className="gname">{i === 0 ? "Your first ready-to-reach person lands here" : "Name"}</span>
+                <span className="gscore">--</span>
+                <span className="eyebrow">{i === 0 ? "This week" : "Wait"}</span>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 

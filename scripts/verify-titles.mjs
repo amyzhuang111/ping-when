@@ -34,7 +34,7 @@ for (const [url, note] of pairs) {
       ...grab(/<h1[^>]*>([\s\S]*?)<\/h1>/gi),
     ];
     var page = norm(html);
-  } catch (e) { status = -1; }
+  } catch { status = -1; }
   const ok = status >= 200 && status < 400 && (got.some((g) => norm(g).includes(norm(want))) || (page ?? "").includes(norm(want)));
   const inMeta = got.some((g) => norm(g).includes(norm(want)));
   if (!ok) fails++;

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "e2e": "node scripts/e2e.mjs",
-    "test": "npx tsx scripts/verify-scoring.ts && npx tsx scripts/verify-import.ts && npx tsx scripts/verify-independent.ts && npx tsx scripts/verify-export.ts && npx tsx scripts/verify-scale.ts",
+    "test": "npx tsx scripts/verify-scoring.ts && npx tsx scripts/verify-import.ts && npx tsx scripts/verify-independent.ts && npx tsx scripts/verify-export.ts && npx tsx scripts/verify-scale.ts && npx tsx scripts/verify-workflow.ts",
     "e2e:firefox": "BROWSER=firefox node scripts/e2e.mjs"
   },
   "dependencies": {

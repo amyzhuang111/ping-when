@@ -22,11 +22,11 @@ export function whyNow(row: ScoredResearcher): string {
         ? `Model “${signal.title}” landed ${when}. They are still in the stretch where a technical note gets an answer.`
         : `“${signal.title}” came out ${when}. A note that cites a real result gets read in this window.`;
     case "funding":
-      return `${org} announced funding ${when}. It is a weak, two-way signal — timing context, not the opener.`;
+      return `${org} announced funding ${when}. It is a weak, two-way signal: timing context, not the opener.`;
     case "layoff":
       return `${org} announced a reduction ${when}. That raises reply odds and the risk of a cruel note. Tone review before anyone writes.`;
     case "talk":
-      return `“${signal.title}” is on a public program. The window runs through the session week — write about the subject, not the slot.`;
+      return `“${signal.title}” is on a public program. The window runs through the session week. Write about the subject, not the slot.`;
     case "oss":
       return `Shipped “${signal.title}” ${when}. People who just released answer a specific technical note, and then they stop.`;
     case "building":
@@ -61,7 +61,7 @@ export function firstTouch(row: ScoredResearcher): string {
     case "talk":
       return `Refer to “${signal.title}” by its content. Offer one precise comment. Suggest a conversation after the session, not before it.`;
     case "oss":
-      return `Lead with a real remark on “${signal.title}” — a behavior, a limit, a use. The role, if it belongs at all, comes later. Open from ${hook}.`;
+      return `Lead with a real remark on “${signal.title}”: a behavior, a limit, a use. The role, if it belongs at all, comes later. Open from ${hook}.`;
     case "building":
       return `Respond to what they said they are building. If they are founding, this is a relationship, not a requisition. Curiosity about ${hook} is enough.`;
     case "reorg":

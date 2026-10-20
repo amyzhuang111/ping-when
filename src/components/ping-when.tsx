@@ -8,6 +8,8 @@ import { WeightPanel } from "@/components/weight-panel";
 import { DEFAULT_WEIGHTS, REACH_THRESHOLD } from "@/lib/constants";
 import { drivingLabel } from "@/lib/copy";
 import { formatDay, todayUTC, weekEnding, weekOf } from "@/lib/dates";
+import { planReminders, remindersIcs } from "@/lib/calendar";
+import { loadExcel, queueSheet, queueXlsx } from "@/lib/workbook";
 import { approvedQueueCsv, rankedQueueCsv, type ImportResult } from "@/lib/exchange";
 import { closestToTheLine, scoreResearchers, weightsEqual, type ScoredResearcher } from "@/lib/scoring";
 import { SIGNAL_GUIDE } from "@/lib/signals";
@@ -45,8 +47,8 @@ function nextCliff(row: ScoredResearcher, asOf: Date): number {
   return soon[0] ?? Number.POSITIVE_INFINITY;
 }
 
-function download(csv: string, filename: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+function download(data: string | ArrayBuffer, filename: string, type = "text/csv;charset=utf-8") {
+  const blob = new Blob([data], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -74,6 +76,7 @@ export function PingWhen() {
   const [refineOpen, setRefineOpen] = useState(false);
   const [limit, setLimit] = useState({ reach: PAGE, near: PAGE, incomplete: PAGE });
   const [importMs, setImportMs] = useState<number | null>(null);
+  const [notice, setNotice] = useState("");
 
   const people = workspace?.people ?? NO_PEOPLE;
   const unscored = useMemo(() => workspace?.unscored ?? [], [workspace]);
@@ -95,7 +98,7 @@ export function PingWhen() {
   const orgs = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of rows) counts.set(r.person.org, (counts.get(r.person.org) ?? 0) + 1);
-    for (const u of unscored) counts.set(u.employer || "—", (counts.get(u.employer || "—") ?? 0) + 1);
+    for (const u of unscored) counts.set(u.employer || "No employer", (counts.get(u.employer || "No employer") ?? 0) + 1);
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
   }, [rows, unscored]);
   const types = useMemo(() => {
@@ -120,7 +123,7 @@ export function PingWhen() {
     .filter(
       (u) =>
         (statusF.size === 0 || statusF.has("incomplete")) &&
-        (orgF.size === 0 || orgF.has(u.employer || "—")) &&
+        (orgF.size === 0 || orgF.has(u.employer || "No employer")) &&
         typeF.size === 0,
     )
     .sort((a, b) => (sort === "name" ? (a.name < b.name ? -1 : 1) : 0));
@@ -148,6 +151,38 @@ export function PingWhen() {
       decisions: { ...workspace.decisions, [id]: workspace.decisions[id] === decision ? undefined : decision },
     });
   }
+  const approvedIds = new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id));
+  async function exportXlsx() {
+    setNotice("Building the spreadsheet.");
+    try {
+      const lib = await loadExcel();
+      const buf = await queueXlsx(lib, queueSheet(rows, unscored, decisions, weights, asOf, workspace?.label ?? ""));
+      download(buf, "ping-when-ranked-queue.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      setNotice(`Saved ping-when-ranked-queue.xlsx. ${rows.length} scored rows, ${unscored.length} waiting on a start date.`);
+    } catch (e) {
+      setNotice(`Spreadsheet not saved. ${e instanceof Error ? e.message : ""}`.trim());
+    }
+  }
+  function saveReminders(target: ScoredResearcher[], filename: string) {
+    const plan = planReminders(target, asOf);
+    const skipped = plan.closed.length > 0 ? ` Skipped, window already closed: ${plan.closed.join(", ")}.` : "";
+    if (plan.reminders.length === 0) {
+      setNotice(`No reminder saved.${skipped}`);
+      return;
+    }
+    download(remindersIcs(plan.reminders), filename, "text/calendar;charset=utf-8");
+    const n = plan.reminders.length;
+    setNotice(`Saved ${filename} with ${n} reminder${n === 1 ? "" : "s"}.${skipped}`);
+  }
+  function remindApproved() {
+    const target = rows.filter((r) => approvedIds.has(r.person.id));
+    if (target.length === 0) {
+      setNotice("No one is approved yet. Open a card and choose Approve, then save reminders.");
+      return;
+    }
+    saveReminders(target, "ping-when-reminders.ics");
+  }
+
   function clearAll() {
     writeWorkspace(null);
     writeWeights(null);
@@ -165,7 +200,7 @@ export function PingWhen() {
 
   const openRow = rows.find((r) => r.person.id === openId);
   const openUnscored = unscored.find((u) => u.id === openId);
-  const closeDrawer = useCallback(() => setOpenId(null), []);
+  const closeDrawer = useCallback(() => { setOpenId(null); setNotice(""); }, []);
   const datasetLine = !loaded ? "" : example ? "EXAMPLE DATA, fictional" : "Real public sources · scores are illustrative";
 
   return (
@@ -330,12 +365,18 @@ export function PingWhen() {
                     className="tlink"
                     onClick={() =>
                       download(
-                        approvedQueueCsv(rows, new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id))),
+                        approvedQueueCsv(rows, approvedIds),
                         "ping-when-approved.csv",
                       )
                     }
                   >
                     Export approved
+                  </button>
+                  <button type="button" className="tlink" data-testid="export-xlsx" onClick={exportXlsx}>
+                    Export ranked queue (Excel)
+                  </button>
+                  <button type="button" className="tlink" data-testid="remind-approved" onClick={remindApproved}>
+                    Calendar reminders for approved ({approvedIds.size})
                   </button>
                   {dirty && (
                     <button type="button" className="tlink" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
@@ -345,6 +386,7 @@ export function PingWhen() {
                 </div>
               )}
 
+              <p className="mt-3 min-h-5 text-[13px] tnum" aria-live="polite" data-testid="notice">{notice}</p>
               {people.length > 0 && (
                 <div className="mt-6 text-[13px] leading-6" aria-live="polite">
                   {!dirty && <p className="muted">Balanced weights, 30 cliff, 40 proof, 30 shift. Drag cliff proximity and the order changes.</p>}
@@ -352,7 +394,7 @@ export function PingWhen() {
                     <p>
                       Entered ready to reach:{" "}
                       {entered
-                        .map((r) => `${r.person.name} (${drivingLabel(r.driving).toLowerCase()}, was ${baselineById.get(r.person.id)?.rank ?? "—"}, now ${r.rank})`)
+                        .map((r) => `${r.person.name} (${drivingLabel(r.driving).toLowerCase()}, was ${baselineById.get(r.person.id)?.rank ?? "unranked"}, now ${r.rank})`)
                         .join("; ")}
                       .
                     </p>
@@ -437,6 +479,8 @@ export function PingWhen() {
           peers={example ? (peersById.get(openRow.person.org) ?? []).filter((p) => p.id !== openRow.person.id) : []}
           decision={decisions[openRow.person.id]}
           onDecide={(d) => onDecide(openRow.person.id, d)}
+          onRemind={() => saveReminders([openRow], `ping-when-reminder-${openRow.person.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person"}.ics`)}
+          notice={notice}
           onClose={closeDrawer}
           markSeed={example}
         />

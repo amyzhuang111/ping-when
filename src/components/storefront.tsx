@@ -81,7 +81,7 @@ export function IncompleteCard({ person, onOpen }: { person: UnscoredCandidate; 
           <p className="brandline truncate">{person.employer || "Employer not given"}</p>
           <p className="name">{person.name}</p>
           <p className="role truncate">{person.role}</p>
-          <p className="score tnum" aria-hidden="true">—</p>
+          <p className="score tnum" aria-hidden="true">n/a</p>
           <p className="price">Incomplete</p>
           <p className="role">Needs start date</p>
         </div>
@@ -137,6 +137,8 @@ export function DetailDrawer({
   onDecide,
   onClose,
   markSeed,
+  onRemind,
+  notice,
 }: {
   row: ScoredResearcher;
   before?: ScoredResearcher;
@@ -146,6 +148,8 @@ export function DetailDrawer({
   onDecide: (decision: Decision) => void;
   onClose: () => void;
   markSeed: boolean;
+  onRemind?: () => void;
+  notice?: string;
 }) {
   const c = row.categories;
   return (
@@ -175,6 +179,15 @@ export function DetailDrawer({
         ))}
       </div>
       <p className="mt-3 text-[12px] muted">Records a decision in this browser. Nothing is sent.</p>
+      {onRemind && (
+        <div className="mt-6">
+          <button type="button" className="tlink" data-testid="remind-one" onClick={onRemind}>
+            Add a calendar reminder (.ics)
+          </button>
+          <p className="mt-2 text-[12px] muted">All day, on the date the window opens. If it is open already, today. The source link and the angle sit in the event note, so the writer has them in hand.</p>
+          {notice && <p className="mt-2 text-[12px] tnum" aria-live="polite" data-testid="drawer-notice">{notice}</p>}
+        </div>
+      )}
 
       <h2 className="eyebrow mt-12 font-semibold">Overview</h2>
       <dl className="spec mt-4">
@@ -276,7 +289,7 @@ export function IncompleteDrawer({ person, onClose }: { person: UnscoredCandidat
       <p className="brandline">{person.employer || "Employer not given"}</p>
       <h1 className="h-drawer mt-3">{person.name}</h1>
       <p className="mt-2 text-[13px] muted">{person.role}</p>
-      <p className="mt-6 text-[15px]">Score — · Incomplete</p>
+      <p className="mt-6 text-[15px]">No score · Incomplete</p>
       <dl className="spec mt-8">
         <dt>Flag</dt>
         <dd>{person.reason}</dd>

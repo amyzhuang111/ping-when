@@ -7,6 +7,8 @@
 import { chromium, firefox } from "playwright";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
+const ExcelJS = createRequire(import.meta.url)("../public/vendor/exceljs.min.js");
 
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const ROSTER = path.resolve(process.env.ROSTER || "/workspace/x-growth/ping-when-real-demo.csv");
@@ -137,6 +139,50 @@ check("reload: weights persist", [...s2.week, ...s2.closest].join(",") === after
 const out = await download(page, "export-ranked");
 check(`export: ranked CSV has header + ${EXPECT_SCORED + EXPECT_UNSCORED} rows`, out.length === EXPECT_SCORED + EXPECT_UNSCORED + 1, String(out.length));
 check(`export: ${EXPECT_UNSCORED} rows marked needs-start-date`, out.filter((l) => l.includes("needs-start-date")).length === EXPECT_UNSCORED);
+
+// 5b. Excel export: formatted workbook with the same people, links, and frozen header
+{
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-testid="export-xlsx"]')]);
+  check("xlsx: file name", dl.suggestedFilename() === "ping-when-ranked-queue.xlsx", dl.suggestedFilename());
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(readFileSync(await dl.path()));
+  const ws = wb.getWorksheet("Queue");
+  const n = ws ? ws.rowCount - 2 : -1;
+  check(`xlsx: ${EXPECT_SCORED + EXPECT_UNSCORED} people under title and header`, n === EXPECT_SCORED + EXPECT_UNSCORED, String(n));
+  check("xlsx: black bold header, frozen, filtered", ws.getCell(2, 1).value === "Rank" && ws.getCell(2, 1).fill?.fgColor?.argb === "FF000000" && ws.getCell(2, 1).font?.bold && ws.views?.[0]?.ySplit === 2 && !!ws.autoFilter);
+  const csvNames = out.slice(1).map((l) => l.split(",")[1]?.replace(/^"/, ""));
+  check("xlsx: same order as the CSV export", [...Array(Math.min(5, n)).keys()].every((i) => String(ws.getCell(i + 3, 2).value).startsWith(csvNames[i])), JSON.stringify(csvNames.slice(0, 5)));
+  const csvLinks = out.slice(1).filter((l) => /,https?:\/\//.test(l)).length;
+  let links = 0;
+  for (let r = 3; r <= ws.rowCount; r++) if (ws.getCell(r, 14).value?.hyperlink) links++;
+  check(`xlsx: every source link from the CSV is a live link (${csvLinks})`, links === csvLinks, `${links} vs ${csvLinks}`);
+  check("xlsx: unscored rows have no score", [...Array(EXPECT_UNSCORED).keys()].every((i) => ws.getCell(ws.rowCount - i, 4).value === null && ws.getCell(ws.rowCount - i, 3).value === "Needs start date"));
+  check("xlsx: notice confirms the save", /Saved ping-when-ranked-queue\.xlsx/.test(await page.locator('[data-testid="notice"]').textContent()));
+}
+
+// 5c. Calendar reminders: none until someone is approved, then one event per approved person
+{
+  await page.click('[data-testid="remind-approved"]');
+  check("ics: no approvals gives a plain notice, no file", /No one is approved yet/.test(await page.locator('[data-testid="notice"]').textContent()));
+  const top = await page.evaluate(() => [...document.querySelectorAll("[data-person]")].sort((a, b) => a.dataset.rank - b.dataset.rank)[0].dataset.name);
+  await page.locator("[data-person] button.card").first().click();
+  await page.waitForSelector('[data-testid="drawer"]');
+  const opened = await page.locator('[data-testid="drawer"] h1').textContent();
+  const [one] = await Promise.all([page.waitForEvent("download", { timeout: 5000 }).catch(() => null), page.click('[data-testid="remind-one"]')]);
+  const drawerNote = await page.locator('[data-testid="drawer-notice"]').textContent();
+  if (one) {
+    const ics = readFileSync(await one.path(), "utf8").replace(/\r\n /g, "");
+    check("ics (drawer): one event for the open person", (ics.match(/BEGIN:VEVENT/g) ?? []).length === 1 && ics.includes(`SUMMARY:Reach out to ${opened.replace(/,/g, "\\,")}`), ics.slice(0, 300));
+    check("ics (drawer): all-day, CRLF, says nothing was sent", /DTSTART;VALUE=DATE:\d{8}/.test(ics) && ics.includes("\r\n") && ics.includes("Nothing was sent."));
+  } else check("ics (drawer): closed window is reported instead of a file", /window already closed/.test(drawerNote), drawerNote);
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await page.keyboard.press("Escape");
+  check("ics: button counts approvals", /\(1\)/.test(await page.locator('[data-testid="remind-approved"]').textContent()));
+  const [many] = await Promise.all([page.waitForEvent("download", { timeout: 5000 }).catch(() => null), page.click('[data-testid="remind-approved"]')]);
+  const note = await page.locator('[data-testid="notice"]').textContent();
+  check("ics (approved): saved file or reported closed window", many ? /Saved ping-when-reminders\.ics with 1 reminder/.test(note) : /window already closed/.test(note), note);
+  check("ics: approved person is the one opened", opened === top, `${opened} vs ${top}`);
+}
 await done(page);
 
 // 6. Paste

@@ -360,3 +360,10 @@ details.method[open] > summary { margin-bottom: 24px; }
 @media (min-width: 1024px) and (max-width: 1279px) {
   [data-testid="hero"]:not(.hero-loaded) { grid-template-columns: max-content minmax(0, 1fr); column-gap: 32px; }
 }
+
+/* Taste+Design 7942132 fixes */
+[data-testid="hero"]:not(.hero-loaded) { padding-bottom: clamp(96px, 22vh, 200px); }
+.ghostgrid .gname { color: rgba(255,255,255,.38); }
+.ghostgrid .gscore { color: rgba(255,255,255,.28); }
+.ghostgrid > div:nth-child(1) { background: rgba(134,161,182,.14); }
+@media (max-width: 699px) { .ghostgrid > div { min-height: 104px; } }

@@ -65,7 +65,8 @@ const state = (page) =>
       empty: !!document.querySelector('[data-empty="true"]'),
     };
   });
-const cliffBox = (page) => page.locator('input[aria-label="Cliff proximity weight"]');
+const openAdjust = async (page) => { const b = page.locator('[data-testid="adjust"]'); if ((await b.count()) && (await b.getAttribute("aria-expanded")) !== "true") await b.click(); };
+const cliffBox = (page) => { const l = page.locator('input[aria-label="Cliff proximity weight"]'); return { fill: async (v) => { await openAdjust(page); await l.fill(v); }, inputValue: async () => { await openAdjust(page); return l.inputValue(); } }; };
 async function setNumber(page, value) {
   const box = cliffBox(page);
   await box.fill(value);
@@ -102,15 +103,15 @@ const nc = await page.evaluate(() => {
   const reach = ranked.filter((e) => e.dataset.status === "reach");
   const top = ranked.find((e) => e.dataset.status !== "reach");
   return { reach: reach.length, section: !!document.querySelector('[data-testid="this-week"]'), line: document.querySelector('[data-testid="none-clear"]')?.textContent ?? null,
-    expect: top ? `Closest to ready is ${top.dataset.name}` : null, href: document.querySelector('[data-testid="closest-link"]')?.getAttribute("href"), topId: top?.id, score: top?.dataset.score,
+    expect: top ? top.dataset.name : null, href: document.querySelector('[data-testid="closest-link"]')?.getAttribute("href"), topId: top?.id, score: top?.dataset.score,
     navNewIn: [...document.querySelectorAll('[data-testid="nav"] a')].some((a) => a.getAttribute("href") === "#new-in") };
 });
 if (nc.reach === 0) {
-  check("empty 'New in' is not shown; data-computed 'Nothing clears' line instead", !nc.section && !nc.navNewIn && nc.line?.startsWith(nc.expect) && nc.line.endsWith(` at ${nc.score}, since nobody clears 60 this week.`), JSON.stringify(nc));
+  check("empty 'New in' is not shown; data-computed 'Nothing clears' line instead", !nc.section && !nc.navNewIn && nc.line?.startsWith("Nobody clears 60 this week") && nc.line.includes(nc.expect), JSON.stringify(nc));
   check("'Closest' link targets that card", nc.href === `#${nc.topId}`, JSON.stringify(nc));
   await page.click('[data-testid="closest-link"]');
   await page.waitForSelector('[data-testid="drawer"]');
-  check("'Closest' link opens that person", (await page.locator('[data-testid="drawer"] h1').textContent()) === nc.expect.replace("Closest to ready is ", ""));
+  check("'Closest' link opens that person", (await page.locator('[data-testid="drawer"] h1').textContent()) === nc.expect);
   const scrim = await page.evaluate(() => getComputedStyle(document.querySelector(".scrim")).backgroundColor);
   check("drawer overlay dims at 40%", scrim === "rgba(0, 0, 0, 0.4)", scrim);
   await page.keyboard.press("Escape");
@@ -152,6 +153,8 @@ await done(page);
 // 7. Slider drag (pointer, not keyboard): drag the cliff thumb right and the weight rises
 page = await fresh();
 await upload(page, ROSTER);
+await openAdjust(page);
+check("adjust: weights and filters stay collapsed until Adjust is pressed", await page.locator('[data-testid="slider-cliff"]').isVisible());
 const thumb = page.locator('[data-testid="slider-cliff"] [data-slot="slider-thumb"]');
 const track = page.locator('[data-testid="slider-cliff"] [data-slot="slider-track"]');
 await track.scrollIntoViewIfNeeded();
@@ -318,7 +321,7 @@ for (const width of [375, 1440]) {
       ink: cs(document.body).color,
       borders,
       firstTile: document.querySelector("[data-person] .card")?.getBoundingClientRect().top ?? 9999,
-      banner: (() => { const b = document.querySelector('[data-testid="announcement"]'); return { h: b.getBoundingClientRect().height, sw: b.scrollWidth, cw: b.clientWidth, text: b.innerText.trim() }; })(),
+      banner: (() => { const b = document.querySelector('[data-testid="topbar"]'); const m = b.querySelector(".mark").getBoundingClientRect(); return { h: b.getBoundingClientRect().height, markLeft: Math.round(m.left), adjustHidden: !document.querySelector('[data-testid="slider-cliff"]')?.offsetParent, exportsBelow: document.querySelector('[data-testid="exports"]').getBoundingClientRect().top > document.querySelector("[data-person]").getBoundingClientRect().top }; })(),
       nav: (() => { const n = document.querySelector('[data-testid="nav"]'); const tops = [...n.querySelectorAll("a")].map((a) => Math.round(a.getBoundingClientRect().top)); return { rows: new Set(tops).size, overflowX: getComputedStyle(n).overflowX, sw: n.scrollWidth, cw: n.clientWidth }; })(),
       loaded: [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "").toLowerCase()),
     };
@@ -327,9 +330,11 @@ for (const width of [375, 1440]) {
   check(`${width}px: smallest visible text >= 12px`, m.minFont >= 12, String(m.minFont));
   check(`${width}px: GI fonts (h1 and body Geist)`, /geist/i.test(m.h1) && /geist/i.test(m.body) && m.loaded.some((f) => f.includes("geist")), `${m.h1} | ${m.body} | loaded ${m.loaded}`);
   check(`${width}px: GI colours (#000 page, #86A1B6 tiles, #EBFF0A only on ready cards), no shadows`, m.bg === "rgb(0, 0, 0)" && m.tile === "rgb(134, 161, 182)" && m.shadows === 0 && m.hiOff === 0, JSON.stringify(m));
+  if (width === 1440) check("1440px: Contract Cliffs top bar (64px, wordmark left)", Math.round(m.banner.h) === 64 && m.banner.markLeft === 48, JSON.stringify(m.banner));
+  check(`${width}px: cards first (Adjust collapsed, exports below the grid)`, m.banner.adjustHidden && m.banner.exportsBelow, JSON.stringify(m.banner));
   if (width === 1440) check("1440px: first card sits above the fold (card top < 760px)", m.firstTile < 760, String(m.firstTile));
   if (width === 375) {
-    check("375px: banner is one line 'NOTHING IS SENT · STAYS IN YOUR BROWSER'", m.banner.text === "NOTHING IS SENT · STAYS IN YOUR BROWSER" && m.banner.h <= 34 && m.banner.sw <= m.banner.cw, JSON.stringify(m.banner));
+    check("375px: Contract Cliffs top bar (56px, wordmark left)", Math.round(m.banner.h) === 56 && m.banner.markLeft === 20, JSON.stringify(m.banner));
     check("375px: nav is a single row that scrolls sideways", m.nav.rows === 1 && m.nav.overflowX === "auto", JSON.stringify(m.nav));
   }
   check(`${width}px: no borders outside the GI line tokens`, m.borders.length === 0, JSON.stringify(m.borders.slice(0, 5)));

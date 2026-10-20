@@ -170,32 +170,22 @@ export function PingWhen() {
 
   return (
     <div className="min-h-full bg-[var(--paper)]">
-      <div className="hair-b">
-        <p className="eyebrow whitespace-nowrap px-4 py-2 text-center" data-testid="announcement">
-          <span className="md:hidden">Nothing is sent · stays in your browser</span>
-          <span className="hidden md:inline">Scored today · nothing is sent · data stays in your browser</span>
-        </p>
-      </div>
-
-      <header className="hair-b">
-        <div className="mx-auto max-w-[1440px] px-4 pt-8 pb-5 text-center md:px-10">
-          <p className="wordmark">ping when</p>
-          <p className="eyebrow mt-3 min-h-4 muted" data-testid="dataset">
-            {hydrated ? datasetLine : ""}
-          </p>
-          <nav className="navrow mt-5" aria-label="Sections" data-testid="nav">
-            {(!loaded || reach.length > 0) && <a className="eyebrow" href="#new-in">New in</a>}
-            <a className="eyebrow" href="#almost">Almost there</a>
-            {(!loaded || unscored.length > 0) && <a className="eyebrow" href="#incomplete">Incomplete</a>}
-            <a className="eyebrow" href="#import">Import</a>
-            <a className="eyebrow" href="#method">Method</a>
-          </nav>
-        </div>
+      <header className="top" data-testid="topbar">
+        <span className="mark">ping when</span>
+        <nav className="navrow" aria-label="Sections" data-testid="nav">
+          {(!loaded || reach.length > 0) && <a className="tl" href="#new-in">New in</a>}
+          <a className="tl" href="#almost">Almost there</a>
+          {(!loaded || unscored.length > 0) && <a className="tl" href="#incomplete">Incomplete</a>}
+          <a className="tl" href="#import">Import</a>
+          <a className="tl" href="#method">Method</a>
+        </nav>
       </header>
 
-      <section className={`mx-auto max-w-[1440px] px-4 md:px-10 ${loaded ? "hero-loaded py-8 md:py-10" : "py-16 md:py-24"}`} data-testid="hero" data-loaded={loaded ? "1" : undefined}>
+      <section className={`wrapx ${loaded ? "hero-loaded py-8 md:py-10" : "py-16 md:py-24"}`} data-testid="hero" data-loaded={loaded ? "1" : undefined}>
         <p className="eyebrow muted">
           Week of {formatDay(weekOf(asOf))} through {formatDay(weekEnding(asOf))}
+          {hydrated && datasetLine ? " · " : ""}
+          <span data-testid="dataset">{hydrated ? datasetLine : ""}</span>
         </p>
         <h1 className={`serif max-w-[18ch] leading-[1.05] ${loaded ? "mt-3 text-[32px] md:max-w-none md:text-[40px]" : "mt-6 text-[44px] md:text-[72px] xl:text-[96px]"}`}>Sourcing is automated. <span className="key">Timing is not.</span></h1>
         {!loaded && (
@@ -210,7 +200,7 @@ export function PingWhen() {
         )}
       </section>
 
-      <div className="mx-auto max-w-[1440px] px-4 pb-16 md:px-10">
+      <div className="wrapx pb-16">
         <ImportPanel loaded={loaded} example={example} label={workspace?.label ?? ""} onImport={onImport} onClear={clearAll} />
         {importMs !== null && (
           <p className="mt-4 text-[12px] muted tnum" data-testid="import-ms">
@@ -246,13 +236,8 @@ export function PingWhen() {
         )}
 
         {loaded && (
-          <div className="mt-8 hair-t pt-8 md:flex md:gap-12">
-            <div className="md:hidden">
-              <button type="button" className="tlink" aria-expanded={refineOpen} onClick={() => setRefineOpen(!refineOpen)}>
-                {refineOpen ? "Hide refine and filters" : "Refine and filter"}
-              </button>
-            </div>
-            <aside className={`side${refineOpen ? " open mt-6" : ""}`} aria-label="Refine and filter">
+          <div className="mt-6 hair-t pt-6">
+            <aside id="adjust-panel" className={`side${refineOpen ? " open" : ""}`} aria-label="Adjust weights and filters" hidden={!refineOpen}>
               {people.length > 0 && <WeightPanel weights={weights} onChange={setWeights} />}
               <div className="mt-10">
                 <h3>Status</h3>
@@ -306,11 +291,15 @@ export function PingWhen() {
               )}
             </aside>
 
-            <main className="mt-8 min-w-0 flex-1 md:mt-0">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+            <main className="min-w-0">
+              <div className="toolbar">
                 <p className="text-[13px] muted tnum" data-testid="summary">
                   {people.length} scored · {unscored.length} need a start date{workspace && workspace.errors.length > 0 ? ` · ${workspace.errors.length} import errors` : ""}
                 </p>
+                <div className="flex items-center gap-6">
+                <button type="button" className="tlink" data-testid="adjust" aria-expanded={refineOpen} aria-controls="adjust-panel" onClick={() => setRefineOpen(!refineOpen)}>
+                  {refineOpen ? "Hide adjust" : dirty || filtering ? "Adjust (changed)" : "Adjust"}
+                </button>
                 <label className="flex items-center gap-3">
                   <span className="eyebrow muted">Sort by</span>
                   <select className="select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort by">
@@ -319,35 +308,12 @@ export function PingWhen() {
                     <option value="name">Name</option>
                   </select>
                 </label>
-              </div>
-              {people.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
-                  <button type="button" className="tlink" data-testid="export-ranked" onClick={() => download(rankedQueueCsv(rows, unscored), "ping-when-ranked-queue.csv")}>
-                    Export ranked queue (CSV)
-                  </button>
-                  <button
-                    type="button"
-                    className="tlink"
-                    onClick={() =>
-                      download(
-                        approvedQueueCsv(rows, new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id))),
-                        "ping-when-approved.csv",
-                      )
-                    }
-                  >
-                    Export approved
-                  </button>
-                  {dirty && (
-                    <button type="button" className="tlink" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
-                      Reset weights
-                    </button>
-                  )}
                 </div>
-              )}
+              </div>
 
               {people.length > 0 && (
                 <div className="mt-6 text-[13px] leading-6" aria-live="polite">
-                  {!dirty && <p className="muted">Balanced weights, 30 cliff, 40 proof, 30 shift. Drag cliff proximity and the order changes.</p>}
+                  {!dirty && refineOpen && <p className="muted">Balanced weights, 30 cliff, 40 proof, 30 shift. Drag cliff proximity and the order changes.</p>}
                   {dirty && entered.length > 0 && (
                     <p>
                       Entered ready to reach:{" "}
@@ -376,14 +342,26 @@ export function PingWhen() {
                 </Section>
               )}
               {people.length > 0 && reach.length === 0 && !filtering && closest && (
-                <p className="mt-10 text-[14px] tnum" data-testid="none-clear">
-                  Closest to ready is{" "}
-                  <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
-                    onClick={() => setOpenId(closest.person.id)}>
-                    {closest.person.name}
-                  </a>
-                  {` at ${closest.score}`}, since nobody clears {REACH_THRESHOLD} this week.
-                </p>
+                <section className="closest-hero" data-testid="closest-hero" aria-label="Closest to ready">
+                  <div className="ch-who">
+                    <p className="eyebrow">Closest to ready · {closest.person.org}</p>
+                    <button type="button" className="ch-name" onClick={() => setOpenId(closest.person.id)}>{closest.person.name}</button>
+                    <p className="ch-why">{drivingLabel(closest.driving)} · {closest.person.roleType}</p>
+                  </div>
+                  <div className="ch-meter" aria-hidden="true">
+                    <p className="ch-score tnum">{closest.score}<span>/{REACH_THRESHOLD}</span></p>
+                    <div className="ch-track"><div className="ch-fill" style={{ width: `${Math.min(100, (closest.score / REACH_THRESHOLD) * 100)}%` }} /></div>
+                    <p className="eyebrow tnum">{REACH_THRESHOLD - closest.score} points under the line</p>
+                  </div>
+                  <p className="ch-line tnum" data-testid="none-clear">
+                    Nobody clears {REACH_THRESHOLD} this week, so no card is lit. Open{" "}
+                    <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
+                      onClick={() => setOpenId(closest.person.id)}>
+                      {closest.person.name}
+                    </a>{" "}
+                    to see which signal would move the score.
+                  </p>
+                </section>
               )}
               {people.length > 0 && (
                 <Section id="almost" testid="closest" title="Almost there" count={near.length} sub="Highest scores that are not ready this week." empty="No one here with these filters.">
@@ -405,29 +383,52 @@ export function PingWhen() {
                   <More shown={limit.incomplete} total={incomplete.length} onMore={() => setLimit({ ...limit, incomplete: limit.incomplete + PAGE })} />
                 </Section>
               )}
+              {people.length > 0 && (
+                <div className="mt-14 hair-t pt-6 flex flex-wrap items-center gap-x-6 gap-y-3" data-testid="exports">
+                  <button type="button" className="tlink" data-testid="export-ranked" onClick={() => download(rankedQueueCsv(rows, unscored), "ping-when-ranked-queue.csv")}>
+                    Export ranked queue (CSV)
+                  </button>
+                  <button
+                    type="button"
+                    className="tlink"
+                    onClick={() =>
+                      download(
+                        approvedQueueCsv(rows, new Set(Object.entries(decisions).filter(([, d]) => d === "approve").map(([id]) => id))),
+                        "ping-when-approved.csv",
+                      )
+                    }
+                  >
+                    Export approved
+                  </button>
+                  {dirty && (
+                    <button type="button" className="tlink" onClick={() => setWeights(DEFAULT_WEIGHTS)}>
+                      Reset weights
+                    </button>
+                  )}
+                </div>
+              )}
             </main>
           </div>
         )}
 
-        <section id="method" className="mt-24 hair-t pt-12">
-          <h2 className="h-section">Limits.</h2>
+        <footer className="cc-foot">
+          <p className="foot">Nothing is sent. Data stays in your browser. Scores are a guide, so open the source before you act.</p>
+          <hr className="hair" />
+          <details id="method" className="method">
+            <summary><span className="lab">Method and limits</span><span className="gn">How the score works and what it cannot tell you</span></summary>
           <div className="mt-6 grid gap-x-12 gap-y-4 md:grid-cols-2">
             <p className="prose-s">The roster is the file you import. The example is 30 fictional archetypes and stays off the queue until you load it.</p>
             <p className="prose-s">A cliff is inferred from start_date. A month with no day uses the first of that month. It is not a view of a grant.</p>
             <p className="prose-s">A layoff is news about the employer. It is not proof this person was cut. Open the source link before you approve.</p>
             <p className="prose-s">The line at 60 predicts a likelier reply, not a hire. Approve records a decision on this machine. It does not send.</p>
           </div>
-          <div className="mt-16">
-            <AutomationPanel />
-          </div>
-        </section>
+            <div className="mt-12">
+              <AutomationPanel />
+            </div>
+            <p className="mt-10 text-[12px] muted">Ping when is an interview case by Amy Zhuang. It is not a General Intuition product, and it is not affiliated with General Intuition.</p>
+          </details>
+        </footer>
       </div>
-
-      <footer className="hair-t">
-        <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-10">
-          <p className="text-[12px] muted">Ping when is an interview case. It is not a General Intuition product, and it is not affiliated with General Intuition.</p>
-        </div>
-      </footer>
 
       {openRow && (
         <DetailDrawer

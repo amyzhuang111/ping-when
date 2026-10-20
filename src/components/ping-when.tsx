@@ -239,7 +239,7 @@ export function PingWhen() {
               <div key={i}>
                 <span className="eyebrow">{i === 0 ? "Ready to reach" : "Employer"}</span>
                 <span className="gname">{i === 0 ? "Your first ready-to-reach person lands here" : "Name"}</span>
-                <span className="gscore">--</span>
+                {i === 0 ? <span className="gscore lit tnum">{REACH_THRESHOLD}+</span> : <span className="gscore">--</span>}
                 <span className="eyebrow">{i === 0 ? "This week" : "Wait"}</span>
               </div>
             ))}

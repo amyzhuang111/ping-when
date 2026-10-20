@@ -302,3 +302,18 @@ details.method[open] > summary { margin-bottom: 24px; }
 .ghostgrid > div:nth-child(1) .gscore, .ghostgrid > div:nth-child(1) .eyebrow { color: var(--tile); }
 .ghostgrid > div:nth-child(1) .gname { color: var(--ink); }
 @media (max-width: 699px) { .ghostgrid { grid-template-columns: 1fr; } .ghostgrid > div:nth-child(n+3) { display: none; } }
+
+/* Taste+Design e50a0fc must-fixes */
+.ghostgrid > div:nth-child(1) { background: rgba(134,161,182,.10); }
+.ghostgrid .gscore.lit { color: var(--tile); }
+[data-testid="hero"]:not(.hero-loaded) { padding-top: clamp(48px, 8vh, 96px); }
+[data-score="0"] .ctext .score { color: rgba(255,255,255,.4); }
+.pgrid > [data-rank="1"]:not([data-status="reach"]) { outline: 1px solid var(--tile); outline-offset: -1px; }
+.pgrid > [data-rank="1"]:not([data-status="reach"]) .ctext .score { color: var(--tile); }
+.pgrid, .ghostgrid { gap: 0; row-gap: 0; column-gap: 0; outline: 0; border: 0; border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); background: transparent; }
+.pgrid > *, .ghostgrid > div { border: 0; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.pgrid > :not([data-person]):not([data-unscored]) { border-right-color: transparent; border-bottom-color: transparent; }
+.pgrid > [data-rank="1"]:not([data-status="reach"]) { position: relative; z-index: 1; }
+.ghostgrid > div:nth-child(1) { position: relative; z-index: 1; }
+.pgrid > [data-rank="1"]:not([data-status="reach"]) { outline: 0; }
+.pgrid > [data-rank="1"]:not([data-status="reach"]) > .card { outline: 1px solid var(--tile); outline-offset: -1px; }

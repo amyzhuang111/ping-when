@@ -45,11 +45,6 @@ function nextCliff(row: ScoredResearcher, asOf: Date): number {
   return soon[0] ?? Number.POSITIVE_INFINITY;
 }
 
-function cliffAhead(row: ScoredResearcher, asOf: Date): Date | null {
-  const t = row.cliffMarks.map((m) => Date.parse(m.date)).filter((x) => x >= asOf.getTime()).sort((a, b) => a - b)[0];
-  return t === undefined ? null : new Date(t);
-}
-
 function download(csv: string, filename: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -382,12 +377,12 @@ export function PingWhen() {
               )}
               {people.length > 0 && reach.length === 0 && !filtering && closest && (
                 <p className="mt-10 text-[14px] tnum" data-testid="none-clear">
-                  Next likely ready is{" "}
+                  Closest to ready is{" "}
                   <a className="underline underline-offset-4" href={`#card-${closest.person.id}`} data-testid="closest-link"
                     onClick={() => setOpenId(closest.person.id)}>
                     {closest.person.name}
                   </a>
-                  {cliffAhead(closest, asOf) ? ` on ${formatDay(cliffAhead(closest, asOf)!)}` : ""}, since nobody clears {REACH_THRESHOLD} this week.
+                  {` at ${closest.score}`}, since nobody clears {REACH_THRESHOLD} this week.
                 </p>
               )}
               {people.length > 0 && (

@@ -102,15 +102,15 @@ const nc = await page.evaluate(() => {
   const reach = ranked.filter((e) => e.dataset.status === "reach");
   const top = ranked.find((e) => e.dataset.status !== "reach");
   return { reach: reach.length, section: !!document.querySelector('[data-testid="this-week"]'), line: document.querySelector('[data-testid="none-clear"]')?.textContent ?? null,
-    expect: top ? `Next likely ready is ${top.dataset.name}` : null, href: document.querySelector('[data-testid="closest-link"]')?.getAttribute("href"), topId: top?.id,
+    expect: top ? `Closest to ready is ${top.dataset.name}` : null, href: document.querySelector('[data-testid="closest-link"]')?.getAttribute("href"), topId: top?.id, score: top?.dataset.score,
     navNewIn: [...document.querySelectorAll('[data-testid="nav"] a')].some((a) => a.getAttribute("href") === "#new-in") };
 });
 if (nc.reach === 0) {
-  check("empty 'New in' is not shown; data-computed 'Nothing clears' line instead", !nc.section && !nc.navNewIn && nc.line?.startsWith(nc.expect) && nc.line.endsWith("since nobody clears 60 this week."), JSON.stringify(nc));
+  check("empty 'New in' is not shown; data-computed 'Nothing clears' line instead", !nc.section && !nc.navNewIn && nc.line?.startsWith(nc.expect) && nc.line.endsWith(` at ${nc.score}, since nobody clears 60 this week.`), JSON.stringify(nc));
   check("'Closest' link targets that card", nc.href === `#${nc.topId}`, JSON.stringify(nc));
   await page.click('[data-testid="closest-link"]');
   await page.waitForSelector('[data-testid="drawer"]');
-  check("'Closest' link opens that person", (await page.locator('[data-testid="drawer"] h1').textContent()) === nc.expect.replace("Next likely ready is ", ""));
+  check("'Closest' link opens that person", (await page.locator('[data-testid="drawer"] h1').textContent()) === nc.expect.replace("Closest to ready is ", ""));
   const scrim = await page.evaluate(() => getComputedStyle(document.querySelector(".scrim")).backgroundColor);
   check("drawer overlay dims at 40%", scrim === "rgba(0, 0, 0, 0.4)", scrim);
   await page.keyboard.press("Escape");

@@ -386,7 +386,7 @@ export function PingWhen() {
                 </div>
               )}
 
-              <p className="mt-3 min-h-5 text-[13px] tnum" aria-live="polite" data-testid="notice">{notice}</p>
+              <p className={notice ? "mt-3 text-[13px] tnum" : "sr-only"} aria-live="polite" data-testid="notice">{notice}</p>
               {people.length > 0 && (
                 <div className="mt-6 text-[13px] leading-6" aria-live="polite">
                   {!dirty && <p className="muted">Balanced weights, 30 cliff, 40 proof, 30 shift. Drag cliff proximity and the order changes.</p>}

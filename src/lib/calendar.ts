@@ -37,14 +37,14 @@ export function planReminders(rows: ScoredResearcher[], asOf: Date): ReminderPla
       `Window: ${formatDay(signal.windowOpens)} to ${formatDay(signal.windowCloses)}.`,
       url ? `Source: ${url}` : "No source link in the imported file. Check before writing.",
       `Angle: ${firstTouch(row)}`,
-      "Set by Ping When. Nothing was sent.",
+      "Draft and send it yourself. Ping When sent nothing.",
     ];
     reminders.push({
       id: row.person.id,
       name: row.person.name,
       day,
       closes: signal.windowCloses,
-      summary: `Reach out to ${row.person.name}`,
+      summary: `Reach out to ${row.person.name} (score ${row.score})`,
       description: lines.join("\n"),
       url,
     });

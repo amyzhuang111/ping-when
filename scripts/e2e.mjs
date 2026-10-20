@@ -173,7 +173,7 @@ check(`export: ${EXPECT_UNSCORED} rows marked needs-start-date`, out.filter((l) 
   if (one) {
     const ics = readFileSync(await one.path(), "utf8").replace(/\r\n /g, "");
     check("ics (drawer): one event for the open person", (ics.match(/BEGIN:VEVENT/g) ?? []).length === 1 && ics.includes(`SUMMARY:Reach out to ${opened.replace(/,/g, "\\,")}`), ics.slice(0, 300));
-    check("ics (drawer): all-day, CRLF, says nothing was sent", /DTSTART;VALUE=DATE:\d{8}/.test(ics) && ics.includes("\r\n") && ics.includes("Nothing was sent."));
+    check("ics (drawer): all-day, CRLF, says nothing was sent", /DTSTART;VALUE=DATE:\d{8}/.test(ics) && ics.includes("\r\n") && ics.includes("Ping When sent nothing."));
   } else check("ics (drawer): closed window is reported instead of a file", /window already closed/.test(drawerNote), drawerNote);
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await page.keyboard.press("Escape");

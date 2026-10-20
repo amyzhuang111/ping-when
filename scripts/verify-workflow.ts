@@ -93,13 +93,22 @@ const lv = lwb.getWorksheet("Queue").getCell(3, 14).value as { hyperlink?: strin
 assert(lv?.hyperlink === "https://arxiv.org/abs/2610.13002", "xlsx: source url becomes a live link");
 const lics = remindersIcs(planReminders(linked, asOf).reminders, asOf);
 assert(lics.includes("URL:https://arxiv.org/abs/2610.13002"), "ics: event carries the source url");
-assert(lics.replace(/\r\n /g, "").includes("Nothing was sent."), "ics: description says nothing was sent");
+assert(lics.replace(/\r\n /g, "").includes("Ping When sent nothing."), "ics: description says nothing was sent");
 const ex = parseImport(readFileSync("public/ping-when-example.csv", "utf8"), "ping-when-example.csv");
 const exRows = scoreResearchers(ex.people, DEFAULT_WEIGHTS, asOf);
 const exWb = new ExcelJS.Workbook();
 await exWb.xlsx.load(await queueXlsx(ExcelJS, queueSheet(exRows, ex.unscored, {}, DEFAULT_WEIGHTS, asOf, "example")));
 const ri = exRows.findIndex((r) => r.status === "reach");
 assert(ri >= 0 && exWb.getWorksheet("Queue").getCell(ri + 3, 2).fill?.fgColor?.argb === READY_FILL, "xlsx: ready-to-reach rows highlighted (example file)");
+// Checks ported from the parked calendar feature (/workspace/ping-when-calendar-feature).
+const weekEnd = Date.UTC(2026, 9, 25);
+assert(plan.reminders.filter((r) => rows.find((x) => x.person.id === r.id)?.status === "reach").every((r) => r.day.getTime() <= weekEnd), "ics: ready-to-reach people are reminded this week");
+const odd = scoreResearchers(parseImport('name,employer,start_date\n"Doe, Jane","Acme; Inc",2025-11\n', "q.csv").people, DEFAULT_WEIGHTS, asOf);
+const oddIcs = remindersIcs(planReminders(odd, asOf).reminders, asOf).replace(/\r\n /g, "");
+assert(!oddIcs.includes("Doe, Jane") && (oddIcs.includes("Doe\\, Jane") || !oddIcs.includes("VEVENT")), "ics: commas escaped");
+assert(!oddIcs.includes("Acme; Inc"), "ics: semicolons escaped");
+const empty = remindersIcs([], asOf);
+assert(!empty.includes("VEVENT") && empty.endsWith("END:VCALENDAR\r\n"), "ics: empty list gives a valid calendar with 0 events");
 console.log(failed ? `${failed} workflow checks failed` : "workflow checks passed");
 }
 main();

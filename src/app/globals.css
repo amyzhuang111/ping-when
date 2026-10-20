@@ -330,3 +330,11 @@ details.method[open] > summary { margin-bottom: 24px; }
 .closest-hero .ch-score { color: var(--tile); }
 .ch-line, [data-testid="summary"], section[data-testid] > p.muted { color: var(--body); }
 @media (max-width: 699px) { .closest-hero { margin-top: 16px; padding: 16px; gap: 12px; } .ch-name { font-size: 28px; } .ch-score { font-size: 44px; } .ch-track { margin: 10px 0 8px; } .ch-line { padding-top: 10px; } }
+
+/* Taste+Design 5d3b394: headline back to 2 lines */
+@media (min-width: 1024px) {
+  [data-testid="hero"]:not(.hero-loaded) { grid-template-columns: max-content minmax(240px, 1fr); }
+  [data-testid="hero"]:not(.hero-loaded) > h1 { white-space: nowrap; }
+  [data-testid="hero"]:not(.hero-loaded) > p.prose-s { align-self: end; }
+  [data-testid="hero"]:not(.hero-loaded) > .tlink { margin-top: 16px; }
+}
